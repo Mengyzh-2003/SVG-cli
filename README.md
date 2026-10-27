@@ -44,11 +44,11 @@ canvas 400x200 created
 svg>
 ```
 
-End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. The current REPL does not create or change SVG documents. The input loop supports CRLF and LF input and a final line without a trailing newline. Success, warning and error presentation are tested with an injected executor; the real editing session has not been implemented.
+End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. The REPL now initializes an in-memory canvas; shape editing follows in stage 3B.2. The input loop supports CRLF and LF input and a final line without a trailing newline. Injected-executor presentation tests are retained alongside real-session init tests.
 
 Double quotes enclose a complete token and preserve spaces, Chinese text and empty strings. Inside double quotes, `\"` becomes `"` and `\\` becomes `\`; other backslash sequences remain literal, including ordinary Windows path separators. A literal backslash immediately before a closing quote must be doubled. Unquoted backslashes remain literal. Partial or adjacent quoted-token concatenation is rejected. Single quotes, semicolons and `#` inside arguments are ordinary characters; there are no inline comments or shell command chains.
 
-The parser preserves argument order and whether each argument was quoted. It forwards `in` as an ordinary token, retaining the distinction between `"in"` and `in`. Command registration, argument counts, numeric checks and the create parent clause belong to stage 3B application/factory handlers. Unknown commands and invalid numeric arguments therefore reach the stage placeholder rather than receiving semantic validation today. Lexical errors never call the executor.
+The parser preserves argument order and whether each argument was quoted. It forwards `in` as an ordinary token, retaining the distinction between `"in"` and `in`. Command registration, argument counts, numeric checks and the create parent clause belong to stage 3B application/factory handlers. Unknown commands are rejected by CommandDispatcher; init validates dimensions before replacing the document. Lexical errors never call the executor.
 
 ## Domain model available in stage 3A
 
