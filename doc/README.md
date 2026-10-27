@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求补充及 Parser 接线更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1–2 已完成，已建立工程、REPL、纯词法 Parser 和结构化执行契约；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
+架构基线：2026-10-26，v1.1；执行与质量要求、Parser 和领域实现更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1–2 已完成，阶段 3A 已实现领域图形与文档树、六种内置类型及 Factory/Registry，正在验收；业务 Command、Composite 几何操作、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
 
 ## 架构方案
 
@@ -38,6 +38,8 @@
 | 组合根 | `src/main.ts` | 实例化依赖、注册内置命令和图形、注入 IO、启动 REPL | 可依赖各模块用于装配 |
 
 六种具体类型（含 `GroupShape`）只放在 `src/shapes/`，避免领域抽象与具体类重复归属。`SvgDocument` 持有领域抽象，负责统一维护树与索引；具体类不反向调用工厂。
+
+阶段 3A 的结构实现：`SvgDocument` 是父子关系的唯一事实来源，Shape 不重复保存 parent/children；通过 `parentOf`、`childrenOf` 和 `walk` 查询，返回冻结的顺序快照。`insert`/`insertSubtree` 完整校验候选后才加入索引和树；`remove` 摘除整棵子树并返回冻结的 `ShapeSubtree` 拓扑，保留原 Shape 实例供恢复使用，不将其当作几何属性快照。命令恢复原位置时另行保存父节点和同级索引。跨文档的同一 Shape 实例在摘除前不得重复挂接；不同文档可以各自使用相同 id 的不同实例。几何变更与完整 Composite 行为按阶段 4B/4C 接入。
 
 目标目录结构：
 
