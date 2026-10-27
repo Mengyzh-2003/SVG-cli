@@ -241,7 +241,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 等待阶段 3A 任务 |
-| 3A 领域与工厂 | 未开始 | — | 无，依赖 2 | 按阶段 3A 验收 |
+| 3A 领域与工厂 | 进行中 | 3A.1 领域 Shape/ContainerShape 契约与公共属性已实现、本地测试待验收 | 无 | 完成并独立推送领域抽象；再实现具体图形/工厂与文档树 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
