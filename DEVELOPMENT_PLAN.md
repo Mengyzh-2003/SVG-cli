@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成并补强回归测试，阶段 2 已完成；阶段 3 及以后未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成并补强回归测试，阶段 2 已完成，阶段 3A 进行中。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -92,6 +92,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 ### 阶段 3：领域、工厂与首个 CLI 闭环
 
 3A：实现 Shape/ContainerShape 抽象、SvgDocument、六种具体图形和 ShapeFactory。字段封装；通过受控领域操作维护父子关系、根顺序和唯一 id 索引，不公开可修改的 children 数组。
+
+3A 内部再分三次验收和推送：3A.1 图形抽象与公共属性；3A.2 六种具体图形、结构化创建数据与工厂注册；3A.3 文档树与索引。工厂本步骤接收已转换为数值的结构化参数，CLI 参数转换在 3B 接入同一注册表，SVG 参数转换在 6A 接入，不另建类型分发表。图形属性当前只读访问不代表模型永久不可变；受控几何修改和状态恢复随 4B/4C 实现，不能由命令直接写字段。
 
 3B：建立 EditorSession、CommandDispatcher、CommandResult 和 Command 契约，提前实现 init。create 从第一版起封装为 CreateCommand；工厂创建未挂接候选节点，全部校验通过后原子加入文档。
 
@@ -241,7 +243,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 等待阶段 3A 任务 |
-| 3A 领域与工厂 | 进行中 | 3A.1 领域 Shape/ContainerShape 契约与公共属性已实现、本地测试待验收 | 无 | 完成并独立推送领域抽象；再实现具体图形/工厂与文档树 |
+| 3A 领域与工厂 | 进行中 | 3A.1 `34de27b` 已推送，[CI 40468255670](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40468255670) Windows/Linux 均通过；3A.2 六种图形/工厂本地 63 项测试及质量检查通过，待提交验收 | 无 | 独立推送 3A.2；核实后进入 3A.3 文档树 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
