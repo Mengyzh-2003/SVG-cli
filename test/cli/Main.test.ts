@@ -3,17 +3,16 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 describe('CLI entry point', () => {
-  it('starts, skips comments, reports unavailable commands, and exits on piped EOF', () => {
-    const result = spawnSync(
-      process.execPath,
-      ['--import', 'tsx', 'src/main.ts'],
-      {
-        cwd: fileURLToPath(new URL('../../', import.meta.url)),
-        input: '\n# sample script\ninit\ncreate rect r1 0 0 10 10\n',
-        encoding: 'utf8',
-        timeout: 10000,
-      },
-    );
+  it.each([
+    { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
+    { entry: 'compiled', args: ['dist/main.js'] },
+  ])('starts the $entry entry point and exits on piped EOF', ({ args }) => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: '\n# sample script\ninit\ncreate rect r1 0 0 10 10\n',
+      encoding: 'utf8',
+      timeout: 10000,
+    });
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');

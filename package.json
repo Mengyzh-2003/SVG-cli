@@ -11,6 +11,7 @@
     "cli": "tsx src/main.ts",
     "typecheck": "tsc --noEmit && tsc --project tsconfig.test.json",
     "build": "tsc",
+    "pretest": "npm run build",
     "test": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

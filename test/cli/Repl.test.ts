@@ -150,4 +150,37 @@ describe('Repl', () => {
     input.destroy(new Error('input failed'));
     await rejected;
   });
+
+  it('reports input failure while an asynchronous execution is pending', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let release!: (result: CommandResult) => void;
+    let started!: () => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const result = new Promise<CommandResult>((resolve) => {
+      release = resolve;
+    });
+    const execute = vi.fn<LineExecutor['execute']>(() => {
+      started();
+      return result;
+    });
+    const running = new Repl(input, output, { execute }).run();
+    const rejected = expect(running).rejects.toThrow(
+      'input failed during execution',
+    );
+    input.write('first\n');
+    await firstStarted;
+    const failed = new Promise<void>((resolve) =>
+      input.once('error', () => resolve()),
+    );
+    input.destroy(new Error('input failed during execution'));
+    await failed;
+    release({ status: 'success', lines: ['first finished'] });
+    await rejected;
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(output.read().toString()).toContain('first finished');
+  });
 });

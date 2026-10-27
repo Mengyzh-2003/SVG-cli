@@ -44,6 +44,6 @@ svg>
 
 End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. No SVG documents are created or changed in this stage. The input loop supports CRLF and LF input and a final line without a trailing newline. Success, warning and error presentation are tested with an injected executor; the real editing session has not been implemented.
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` runs once and fails if no tests are found.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The tests start both the source and compiled entry points and cover input failure during an asynchronous execution.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.

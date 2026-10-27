@@ -26,5 +26,5 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run typecheck
-      - run: npm run build
-      - run: npm test
+      - name: Build and test source and compiled entry points
+        run: npm test

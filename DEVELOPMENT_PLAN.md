@@ -195,8 +195,7 @@ GitHub Actions 从阶段 1 起对每次 push 和 pull_request 执行；矩阵为
 2. npm ci，禁止在 CI 中更新锁文件。
 3. npm run format:check（Prettier 只检查，不自动修改）。
 4. npm run typecheck。
-5. npm run build。
-6. npm test（单次运行，禁止 watch）。
+5. npm test：pretest 钩子先执行 npm run build，再单次运行 Vitest（禁止 watch），同时测试源码和编译入口。直接执行 npm run build 仍可单独构建。
 
 本项目先采用 Prettier 统一格式，语义质量由严格 TypeScript 和行为测试把关；暂不叠加另一套 lint 工具，也不设任意覆盖率百分比。脚本失败必须返回非零退出码，不能用跳过测试或忽略错误让门槛变绿。
 
@@ -283,3 +282,5 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **架构落地**：已建立 Repl、TerminalOutput、LineExecutor 和 CommandResult。CLI 使用依赖注入；本阶段未声称实现 Command、Composite、Factory/Registry 或 EditorSession Facade，也未接入领域状态。
 - **阻塞项**：无。REPL 推送曾因 GitHub 连接超时和本机多账号凭据选择等待失败，已通过单次命令选择可用 HTTPS 解析地址及现有正确账号完成；未修改远程地址、系统网络配置或关闭证书校验。
 - **下一阶段目标**：阶段 2 实现通用 CommandParser，保留词元值与 quoted 标记，处理双引号、约定转义、空行和整行注释，词法错误不得调用执行入口；不提前实现领域模型或业务命令。阶段 2 尚未开始，当前不创建 final tag。
+
+阶段一非阻塞建议补强（2026-10-27）：采纳编译入口 CI 冒烟与异步执行期间输入流失败回归建议。`npm test` 现在先构建，再运行源码/编译入口及 REPL 测试，共 12 项通过；生产 REPL 无须修复。原阶段一验收保持有效，本次补强提交和 CI 另行核实后进入阶段二。
