@@ -47,6 +47,22 @@ export abstract class Shape {
 
   abstract get type(): string;
 
+  /** Detached, read-only local geometry; extensions override this view. */
+  get geometry(): Readonly<Record<string, number | string>> {
+    return Object.freeze({});
+  }
+
+  get attributes(): Readonly<Record<string, number | string>> {
+    return Object.freeze({
+      ...this.geometry,
+      ...(this.#fill === undefined ? {} : { fill: this.#fill }),
+      ...(this.#stroke === undefined ? {} : { stroke: this.#stroke }),
+      ...(this.#strokeWidth === undefined
+        ? {}
+        : { 'stroke-width': this.#strokeWidth }),
+    });
+  }
+
   protected static requireFiniteGeometry(value: number, name: string): number {
     if (!Number.isFinite(value)) {
       throw new Error(`${name} must be a finite number`);

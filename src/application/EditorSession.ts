@@ -5,16 +5,20 @@ import { CommandDispatcher } from './CommandDispatcher.js';
 import { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
+import { DocumentFormatter } from './DocumentFormatter.js';
 
 export class EditorSession implements CommandExecutor {
   readonly #dispatcher = new CommandDispatcher();
   readonly #factory: ShapeFactory;
+  readonly #formatter = new DocumentFormatter();
   #document: SvgDocument | null = null;
 
   constructor(factory = new ShapeFactory()) {
     this.#factory = factory;
     this.#dispatcher.register('init', (request) => this.#initialize(request));
     this.#dispatcher.register('create', (request) => this.#create(request));
+    this.#dispatcher.register('tree', (request) => this.#tree(request));
+    this.#dispatcher.register('show', (request) => this.#show(request));
   }
 
   get document(): SvgDocument | null {
@@ -30,6 +34,35 @@ export class EditorSession implements CommandExecutor {
         message: error instanceof Error ? error.message : 'unexpected error',
       };
     }
+  }
+
+  #requireDocument(): SvgDocument {
+    if (this.#document === null) {
+      throw new Error("no document. use 'init' or 'read' first");
+    }
+    return this.#document;
+  }
+
+  #tree(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length > 1 || request.args[0]?.value === '') {
+      throw new Error('usage: tree [id]');
+    }
+    return {
+      status: 'success',
+      lines: this.#formatter.tree(document, request.args[0]?.value),
+    };
+  }
+
+  #show(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 1 || request.args[0]!.value === '') {
+      throw new Error('usage: show <id>');
+    }
+    return {
+      status: 'success',
+      lines: this.#formatter.show(document, request.args[0]!.value),
+    };
   }
 
   #create(request: CommandRequest): CommandResult {

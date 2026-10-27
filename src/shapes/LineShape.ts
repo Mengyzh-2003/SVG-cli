@@ -25,6 +25,15 @@ export class LineShape extends Shape {
     return 'line';
   }
 
+  override get geometry(): Readonly<Record<string, number>> {
+    return Object.freeze({
+      x1: this.#x1,
+      y1: this.#y1,
+      x2: this.#x2,
+      y2: this.#y2,
+    });
+  }
+
   get x1(): number {
     return this.#x1;
   }

@@ -22,6 +22,10 @@ export class CircleShape extends Shape {
     return 'circle';
   }
 
+  override get geometry(): Readonly<Record<string, number>> {
+    return Object.freeze({ cx: this.#cx, cy: this.#cy, r: this.#r });
+  }
+
   get cx(): number {
     return this.#cx;
   }

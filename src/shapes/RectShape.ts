@@ -25,6 +25,15 @@ export class RectShape extends Shape {
     return 'rect';
   }
 
+  override get geometry(): Readonly<Record<string, number>> {
+    return Object.freeze({
+      x: this.#x,
+      y: this.#y,
+      width: this.#width,
+      height: this.#height,
+    });
+  }
+
   get x(): number {
     return this.#x;
   }

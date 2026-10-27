@@ -22,6 +22,10 @@ export class TextShape extends Shape {
     return 'text';
   }
 
+  override get geometry(): Readonly<Record<string, number | string>> {
+    return Object.freeze({ x: this.#x, y: this.#y, text: this.#text });
+  }
+
   get x(): number {
     return this.#x;
   }

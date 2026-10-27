@@ -1,0 +1,82 @@
+import type { SvgDocument } from '../domain/document/SvgDocument.js';
+import { ContainerShape } from '../domain/shapes/ContainerShape.js';
+import type { Shape } from '../domain/shapes/Shape.js';
+
+interface TreeEntry {
+  readonly shape: Shape;
+  readonly prefix: string;
+  readonly branch: string;
+}
+
+/** Presentation only: shapes supply properties, the document supplies topology. */
+export class DocumentFormatter {
+  tree(document: SvgDocument, rootId?: string): readonly string[] {
+    const lines: string[] = [];
+    const pending: TreeEntry[] = [];
+    if (rootId === undefined) {
+      lines.push(`svg (${document.width}x${document.height})`);
+      this.#pushChildren(pending, document.roots, '');
+    } else {
+      pending.push({ shape: document.require(rootId), prefix: '', branch: '' });
+    }
+    // Iterative traversal keeps deep domain trees independent of the call stack.
+    while (pending.length > 0) {
+      const { shape, prefix, branch } = pending.pop()!;
+      const attributes = this.#attributes(shape);
+      lines.push(
+        `${prefix}${branch}${this.#identity(shape)}${attributes.length === 0 ? '' : ` ${attributes.join(' ')}`}`,
+      );
+      if (shape instanceof ContainerShape) {
+        const childPrefix =
+          prefix + (branch === '' ? '' : branch === '└── ' ? '    ' : '│   ');
+        this.#pushChildren(pending, document.childrenOf(shape.id), childPrefix);
+      }
+    }
+    return lines;
+  }
+
+  show(document: SvgDocument, id: string): readonly string[] {
+    const shape = document.require(id);
+    const parent = document.parentOf(id);
+    return [
+      `${this.#identity(shape)}  parent=${parent === null ? 'svg' : this.#identity(parent)}`,
+      ...this.#attributes(shape).map((attribute) => `  ${attribute}`),
+    ];
+  }
+
+  #pushChildren(
+    pending: TreeEntry[],
+    children: readonly Shape[],
+    prefix: string,
+  ): void {
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      pending.push({
+        shape: children[index]!,
+        prefix,
+        branch: index === children.length - 1 ? '└── ' : '├── ',
+      });
+    }
+  }
+
+  #identity(shape: Shape): string {
+    return `${this.#value(shape.type)}#${this.#value(shape.id)}`;
+  }
+
+  #attributes(shape: Shape): string[] {
+    return Object.entries(shape.attributes).map(
+      ([key, value]) =>
+        `${this.#value(key)}=${this.#value(value, key === 'text')}`,
+    );
+  }
+
+  #value(value: number | string, quote = false): string {
+    if (typeof value === 'number') return String(value);
+    if (!quote && /^[^\s\u0000-\u001f\u007f-\u009f"\\]+$/u.test(value))
+      return value;
+    return JSON.stringify(value).replace(
+      /[\u007f-\u009f\u2028\u2029]/gu,
+      (character) =>
+        `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`,
+    );
+  }
+}

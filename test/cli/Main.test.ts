@@ -6,6 +6,39 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('queries a real document and continues after query errors', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'tree',
+        'init 400 200',
+        'create g scene',
+        'create rect r 1 2 3 4 red in scene',
+        'create text label 5 6 "中文 # in" in scene',
+        'tree',
+        'show r',
+        'tree r',
+        'show missing',
+        'tree scene',
+      ].join('\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'svg (400x200)\n└── g#scene\n    ├── rect#r x=1 y=2 width=3 height=4 fill=red\n    └── text#label x=5 y=6 text="中文 # in"',
+    );
+    expect(result.stdout).toContain(
+      'rect#r  parent=g#scene\n  x=1\n  y=2\n  width=3\n  height=4\n  fill=red',
+    );
+    expect(result.stdout).toContain(
+      'error: no such shape: missing\nsvg> g#scene\n├── rect#r',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(2);
+  });
+
   it('starts and exits on piped EOF', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),

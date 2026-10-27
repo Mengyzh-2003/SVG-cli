@@ -25,6 +25,15 @@ export class EllipseShape extends Shape {
     return 'ellipse';
   }
 
+  override get geometry(): Readonly<Record<string, number>> {
+    return Object.freeze({
+      cx: this.#cx,
+      cy: this.#cy,
+      rx: this.#rx,
+      ry: this.#ry,
+    });
+  }
+
   get cx(): number {
     return this.#cx;
   }

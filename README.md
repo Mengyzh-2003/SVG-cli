@@ -60,7 +60,9 @@ The parser preserves argument order and whether each argument was quoted. It for
 
 `ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
 
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init` and `create` are available in the real REPL; `tree`, `show` and `help` follow in stage 3C. Command-level undo is tested, but CLI undo/redo and history are only connected in stage 4A.
+`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `tree [id]` and `show <id>` are available in the real REPL; `help` follows in the next stage 3C module. Command-level undo is tested, but CLI undo/redo and history are only connected in stage 4A.
+
+`tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
 
 Available creation syntax (append `in <containerId>` to any line to target an existing group):
 
