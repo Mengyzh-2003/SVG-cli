@@ -9,9 +9,7 @@ export class TerminalOutput {
   }
 
   welcome(): void {
-    this.#output.write(
-      'SVG CLI — stage 2: REPL and parser ready; editing commands are not connected.\n',
-    );
+    this.#output.write('SVG CLI — document editor\n');
   }
 
   render(result: CommandResult): void {

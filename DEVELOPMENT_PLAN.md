@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → CommandExecutor → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；阶段 1 的 CLI LineExecutor 原始行接口已删除。空行/整行注释全部交由 Parser，REPL 不再过滤；词法错误不调用执行器。当前入口仍返回明确的阶段占位错误，阶段 3 再由 EditorSession 实现此契约；尚未实现命令分派器或完整 Facade。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；EditorSession 实现执行契约，目前已连接 init，create 在 3B.2 接入。空行/整行注释全部交由 Parser；词法错误不调用执行器。历史与 IO 后续接入 Facade。
 
 ### 3.2 主流程与分派限制
 
@@ -244,7 +244,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 等待阶段 3B 任务 |
-| 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
+| 3B init/create Command | 进行中 | 3B.1 应用入口与 init：108 项本地测试通过，待提交及 CI | 无 | 3B.1 推送验收后接入 create |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |

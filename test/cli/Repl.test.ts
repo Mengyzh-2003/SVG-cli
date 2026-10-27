@@ -31,9 +31,7 @@ describe('Repl', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenNthCalledWith(1, { name: 'first', args: [] });
     expect(execute).toHaveBeenNthCalledWith(2, { name: 'second', args: [] });
-    expect(output).toContain(
-      'SVG CLI — stage 2: REPL and parser ready; editing commands are not connected.\nsvg> ',
-    );
+    expect(output).toContain('SVG CLI — document editor\nsvg> ');
     expect(output).toContain('handled first\nsvg> handled second\nsvg> ');
     expect(output).not.toContain('script comment');
   });
@@ -162,7 +160,7 @@ describe('Repl', () => {
     const output = await runRepl('', { execute });
 
     expect(execute).not.toHaveBeenCalled();
-    expect(output).toContain('SVG CLI — stage 2: REPL and parser ready');
+    expect(output).toContain('SVG CLI — document editor');
   });
 
   it('forwards parsed colours and quoted text through CRLF and a final line without newline', async () => {

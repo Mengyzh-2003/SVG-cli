@@ -32,15 +32,15 @@ node dist/main.js
 
 ## Current REPL behaviour
 
-The REPL displays a welcome message and an `svg>` prompt. The parser ignores blank lines and whole-line comments beginning with `#` (optionally preceded by whitespace). Malformed quotes produce a single-line error and the REPL continues. Lexically valid commands currently receive an explicit development-stage error; for example:
+The REPL displays a welcome message and an `svg>` prompt. The parser ignores blank lines and whole-line comments beginning with `#` (optionally preceded by whitespace). Malformed quotes produce a single-line error and the REPL continues. Stage 3B.1 connects the real application session and `init [w] [h]` (default 800 by 600); other commands are not connected yet. For example:
 
 ```text
-SVG CLI — stage 2: REPL and parser ready; editing commands are not connected.
+SVG CLI — document editor
 svg> # ignored comment
 svg> set t1 text "unfinished
 error: unterminated double quote
-svg> create text t1 20 40 "中文 # in" in scene
-error: commands are not available yet (stage 2)
+svg> init 400 200
+canvas 400x200 created
 svg>
 ```
 

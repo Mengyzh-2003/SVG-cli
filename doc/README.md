@@ -75,7 +75,7 @@ doc/
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
 
-当前实际流程为 `main.ts → Repl → CommandParser → CommandExecutor → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，已删除阶段 1 的空行/注释过滤和 CLI `LineExecutor` 原始行接口；词法错误只呈现，不调用执行器。真实入口仍明确返回“业务命令尚不可用”，阶段 3 的 EditorSession 将实现此契约。该接线不增加命令名分派，也不作为完整 Facade 或 Strategy 模式计数。
+当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。阶段 3B.1 的 EditorSession Facade 已接入 init，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档。create、历史与 IO 逐步接入，不把完整 Facade 能力视为已经交付。
 
 ### 4. PlantUML 组件图
 

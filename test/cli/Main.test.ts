@@ -16,11 +16,10 @@ describe.each([
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
-    expect(result.stdout).toContain('REPL and parser ready');
+    expect(result.stdout).toContain('SVG CLI — document editor');
     expect(result.stdout.match(/svg> /g)).toHaveLength(5);
-    expect(
-      result.stdout.match(/error: commands are not available yet \(stage 2\)/g),
-    ).toHaveLength(2);
+    expect(result.stdout).toContain('canvas 800x600 created');
+    expect(result.stdout).toContain('error: unknown command: create');
     expect(result.stdout).not.toContain('sample script');
   });
 
@@ -38,7 +37,7 @@ describe.each([
     expect(result.stdout.match(/svg> /g)).toHaveLength(4);
     expect(result.stdout.match(/error: /g)).toHaveLength(2);
     expect(result.stdout).toContain(
-      'error: unterminated double quote\nsvg> error: commands are not available yet (stage 2)\nsvg> ',
+      'error: unterminated double quote\nsvg> error: unknown command: create\nsvg> ',
     );
     expect(result.stdout).not.toContain('unclosed comment');
   });
