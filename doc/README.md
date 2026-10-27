@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求补充及 Parser 接线更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。已建立工程、REPL、纯词法 Parser 和结构化执行契约；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
+架构基线：2026-10-26，v1.1；执行与质量要求补充及 Parser 接线更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1–2 已完成，已建立工程、REPL、纯词法 Parser 和结构化执行契约；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
 
 ## 架构方案
 
@@ -269,7 +269,7 @@ end note
 
 当前本地证据：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查通过。3 个测试文件共 44 项通过：Parser 24 项、REPL 16 项、源码/编译入口各 2 项。保留阶段 1 的异步顺序、输入失败、异步执行中输入失败、CRLF/EOF 等回归；新增 Parser 全行接管、词法错误执行器零调用、错误后恢复、引号来源透传和无语义分派验证。此时没有领域模型，错误测试证明不进入执行入口，不冒称已验证领域快照不变。
 
-手工证据：在 Windows PTY 运行 `node dist/main.js`，验证空行、含未闭合引号的整行注释被跳过，未闭合文本输出一行词法错误，下一条中文/含 #/in 的合法词法输入到达阶段占位执行器，空提示符 Ctrl+D 退出码为 0。源码与编译入口都由真实子进程测试持续验证。阶段 1 补强提交 [CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) 与阶段 2A [CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 均在 Windows/Linux 通过；阶段 2B 的精确实现 SHA、远程与 CI 结果在根开发方案第 8 节追加核实。
+手工证据：在 Windows PTY 运行 `node dist/main.js`，验证空行、含未闭合引号的整行注释被跳过，未闭合文本输出一行词法错误，下一条中文/含 #/in 的合法词法输入到达阶段占位执行器，空提示符 Ctrl+D 退出码为 0。源码与编译入口都由真实子进程测试持续验证。阶段 1 补强提交 [CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386)、阶段 2A [CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 及阶段 2B [CI 40466534090](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) 均在 Windows/Linux 通过；精确实现 SHA、远程核实及完成状态见根开发方案第 8 节。
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 

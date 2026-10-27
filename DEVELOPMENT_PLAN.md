@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成并补强回归测试，阶段 2 进行中；阶段 3 及以后未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成并补强回归测试，阶段 2 已完成；阶段 3 及以后未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -240,7 +240,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 阶段 | 状态 | 验收证据 / 实现 SHA / 推送与 CI | 阻塞项 | 下一步 |
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
-| 2 词法 Parser | 进行中 | 2A `99b3908` 已推送，[CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) Windows/Linux 通过；2B 已完成接线及本地 44 项测试、交互验收，待提交推送与 CI | 无 | 单独推送 2B 并核实双平台 CI |
+| 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 等待阶段 3A 任务 |
 | 3A 领域与工厂 | 未开始 | — | 无，依赖 2 | 按阶段 3A 验收 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
@@ -287,13 +287,14 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 阶段一非阻塞建议补强（2026-10-27）：采纳编译入口 CI 冒烟与异步执行期间输入流失败回归建议。`npm test` 现在先构建，再运行源码/编译入口及 REPL 测试，共 12 项通过；生产 REPL 无须修复。提交 `acb500b26fad7bbc1ae929d8e60a9e68487c40cb` 已推送，远程 SHA 已核实；[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过。Git 直连不稳定，发现系统代理可用后仅在命令级使用该代理完成推送；未修改持久配置。
 
-### 阶段 2 实施记录（2026-10-27）
+### 阶段 2 验收记录（2026-10-27）
 
-- **状态**：进行中，2A 完成；2B 本地验收完成，待提交推送及 CI 核实。
+- **状态**：完成。2A/2B 按顺序各自测试、提交并推送；本地、手工与双平台 CI 均通过。阶段完成以独立文档提交记录，该记录提交自身的推送及 CI 在阶段报告核实。
 - **2A 实际实现与远程证据**：application 定义只读 CommandRequest/CommandToken；CommandParser 返回 skip/error/command 三类结果。提交 `99b3908c91ba370706018bef5034d121ebfbab60` 在开始 2B 前已单独推送，ls-remote SHA 核实一致；[CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 对应该精确 SHA，Windows/Linux 均 completed/success。2A 新增 24 项词法测试，加原 12 项回归共 36 项通过。
 - **2B 实际实现**：Repl 每行原文交给 Parser，删除旧过滤；只对 command 结果调用 application CommandExecutor，对 error 统一呈现并继续。删除 CLI LineExecutor；组合根注入 Parser 和结构化占位执行器，后续 EditorSession 实现同一契约。欢迎语及根 README 如实说明当前能力。
+- **2B 远程证据**：提交 `ca87dcff18be0be9a400a836326f62c115e1d4c0` 已单独推送至 origin/main，2026-10-27 使用 ls-remote 核实远程 SHA 与本地实现一致；[CI 40466534090](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) 对应该精确 SHA，Windows/Linux 均 completed/success。
 - **本地证据**：Node.js 24.15.0 / npm 11.12.1，`npm test` 先构建再运行，3 文件 44 项通过（Parser 24、REPL 16、入口 4）；`npm run typecheck`、`npm run format:check`、`git diff --check` 均通过。覆盖引号、空文本、中文、#、in、转义/Windows 路径、词法错误不执行、错误恢复和语义透传；保留异步顺序、异步执行中输入失败、EOF/CRLF 及源码/编译入口回归。
 - **手工验收**：Windows PTY 启动编译入口，空行及 `# "unclosed comment` 跳过；未闭合文本输出单行词法错误；下一条含中文/#/in 的完整命令进入阶段占位执行器；Ctrl+D 后退出码 0。
 - **依赖与模式**：Parser 只依赖 application 数据契约，无文件系统或领域依赖；application 不引用 CLI；未增加名字分派。依赖注入与只读请求边界已落地，业务 Command、Composite、Factory/Registry 和 Facade 仍在后续阶段，不提前计数。
 - **计划澄清**：原文“本阶段测试注册项契约”与阶段 3B 才引入注册项不一致，改为本阶段测试请求/执行器契约，阶段 3B 再测试注册项及语义校验，避免提前创建空框架。引号拼接等未规定行为已列为本方案决策。
-- **阻塞与下一步**：无；先推送 2B 并核实 CI，通过后独立记录阶段完成。阶段 3A 将实现领域抽象、文档树/id 索引、六种具体图形与工厂，本次不开始阶段 3。
+- **阻塞与下一步**：无。阶段 3A 将实现领域抽象、文档树/id 索引、六种具体图形与工厂，验收构造、id 冲突、父子关系、同级顺序及模型受控修改；阶段 3B 再接入 EditorSession、分派器、init 与 CreateCommand。本次不开始阶段 3，不创建 final tag。
