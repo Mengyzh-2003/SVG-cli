@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求、Parser、领域和应用入口实现更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1–2、3A–3B 已完成；Factory/Registry、EditorSession Facade 和首个 CreateCommand 已落地。完整历史及 Composite 几何操作仍按后续阶段实现，不代表已经验收。
+架构基线：2026-10-26，v1.1；执行与质量要求、Parser、领域、应用入口和查询实现更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade 和首个 CreateCommand 已落地，tree/show/help 已连接真实入口。完整历史及 Composite 几何操作仍按后续阶段实现，不代表已经验收。
 
 ## 架构方案
 
@@ -317,7 +317,16 @@ end note
 2. EditorSession 组合命令、领域与工厂；CreateCommand 只 import 领域及 Command；工厂只依赖领域抽象、具体类型与 shapes 内数据契约。Parser 和领域没有业务接线变更，类型/命令名仅在两个注册表查找，无额外 switch。
 3. Command 由 CreateCommand 首次落实，保存实例、父 id 与同级索引，失败插入不推进命令状态；测试执行→撤销→重执行并恢复身份及顺序。Facade 已提供真实结构化入口，Factory/Registry 同时支持结构化数据与 CLI 创建。History 和完整 Composite 仍按后续阶段实现。
 
+阶段 3C 增量源码抽样（2026-10-27）：
+
+1. 抽查 `src/domain/shapes/Shape.ts`、五种叶子类、`src/application/DocumentFormatter.ts`、`EditorSession.ts`、`CommandDispatcher.ts` 和 `src/shapes/ShapeFactory.ts`。几何视图由具体图形覆写，样式合并在基类；返回冻结值快照，不暴露私有字段或可写树集合。
+2. DocumentFormatter 只 import SvgDocument、Shape 和 ContainerShape，不依赖具体图形；容器判断使用抽象类型，属性值按数值/字符串格式化，不按标签分派。领域层没有终端、应用或文件系统依赖；Parser 保持原有词法职责。
+3. 命令与图形语法都附在原有注册项，help 枚举注册信息，不另建命令/类型映射。扩展 marker 证明新增几何与创建帮助无需改格式化器或 EditorSession。查询直接返回结构化结果，不创建 Command、不改变文档；历史接入后仍须验证查询保留 undo/redo。
+4. Factory/Registry 与 Facade 持续复用；本阶段未增加新模式。Composite 的统一显示依赖抽象属性和文档拓扑，完整几何行为仍由 4B/4C 验收；不将查询成功等同于完整编辑器完成。
+
 ## 质量保证手段
+
+阶段 3C 本地与手工证据：12 文件 189 项通过，原 156 项回归全部保留；新增查询/属性/深树 24 项、帮助与注册元数据 5 项、源码/编译入口查询及 help 各 2 项。严格 typecheck、pretest 构建、format:check、git diff --check 均通过。Windows PTY 验证编译入口 tree/show 中文内容、实际 parent、错误后继续查询、未初始化 help、错误 help 后成功创建，以及 Ctrl+D 退出码 0。两个实现模块的精确 SHA、推送与 CI 证据以开发方案第 8 节为准。
 
 阶段 3B 当前本地证据：10 文件 156 项通过，包含原 91 项回归、Dispatcher/init 17 项、create 应用集成 39 项、CreateCommand 4 项、工厂 CLI 扩展保护 3 项及源码/编译入口新增 2 项。严格类型检查、构建、Prettier 和 diff 检查通过。六种图形根级/嵌套、空/中文文本、in 词元歧义、非法数值、父目标错误、未初始化、unknown box、失败状态不变及 init 重置已覆盖；真实入口连续错误后可继续成功创建。远程精确证据及最终状态见开发方案第 8 节。
 

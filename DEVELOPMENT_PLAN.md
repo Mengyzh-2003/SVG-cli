@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1–2、3A–3B 已完成，下一阶段为 3C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1–2、3A–3C 已完成，下一阶段为 4A。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -251,7 +251,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
-| 3C tree/show/help | 进行中 | 3C.1 `53ab90c` 已推送，[CI 40476152693](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693) 双平台通过；3C.2 help 本地构建、类型检查及 189 项测试通过，待推送/CI | 无 | 3C.2 推送后完成阶段验收 |
+| 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 等待阶段 4A 任务 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
@@ -332,3 +332,15 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **发现与修正**：初版工厂适配器 parentId 固定 null，空字符串坐标可经 Number 转成 0；已补齐返回边界、空值拒绝及回归。当前入口文档已同步移除占位描述。详细过程与依赖自查见 doc/README.md。
 - **阻塞**：无。推送采用命令级代理与已有正确账户选项；匿名 API 限流后从公开 Actions 页面核实 SHA/CI，未更改持久配置或输出凭据。
 - **下一阶段 3C**：接入 tree/show/help；帮助来自注册信息，显示采用多态属性视图，不增加类型名分派。验证层级、顺序、几何属性、show parent、help 未初始化可用及 init→create→tree/show 会话。继续逐模块测试、提交、push 与 CI 核实，不创建 final tag。
+
+### 阶段 3C 验收记录（2026-10-27）
+
+- **状态与顺序**：完成。3C.1 独立测试、提交、push 且 CI 验收后才开发 3C.2；阶段记录另作文档提交，其自身 push/CI 在最终报告核实。没有开始 4A 或创建 final tag。
+- **3C.1 查询模块**：`53ab90c54e54df7b6673d71f0bc0271c0dabab0f` 已推送至 origin/main，并通过 ls-remote 核实；[CI 40476152693](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693) 对应该精确 SHA，Windows/Linux 均 success。当时 11 文件 182 项通过。Shape 提供只读属性视图，五种叶子多态暴露几何，GroupShape 沿用空几何；DocumentFormatter 迭代展示文档关系，EditorSession 注册 tree/show。
+- **3C.2 帮助模块**：`b3951314eee8bdae7c18797ad6864fc0b120bf0c` 独立推送，2026-10-27 16:55 前后（UTC+8）核实远程 SHA；[CI 40476788895](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 对应该精确 SHA，Windows/Linux 均 success。CommandDispatcher 注册项保存语法回调；ShapeFactory 从同表 schema 生成内置创建语法，help 动态读取且可在 init 前使用。
+- **验收范围**：完整树、指定子树/叶子、空画布/空组、同级顺序、六种几何、根及嵌套 parent、样式缺省和显式值。中文、引号、反斜杠及控制字符单行转义；冻结属性视图与 1500 层领域树迭代遍历。缺失 id、未初始化、错误参数均被拒绝，比较文档身份、属性、父关系、节点实例、索引与树输出确认无变更。help 不调用 parser/creator，后注册 CLI 类型自动出现，无 CLI parser 类型不冒充可创建。
+- **本地门槛**：Windows，Node.js 24.15.0 / npm 11.12.1；npm run typecheck、npm test（pretest 先 build，12 文件 189 项通过）、npm run format:check、git diff --check 均通过。原 156 项回归保留；新增 33 项，包含源码和编译入口各自的真实查询与 help 会话。
+- **手工验收**：在 Windows PTY 运行 node dist/main.js，创建 400×200 画布、scene 与中文文本，tree/show 显示真实层级与属性；缺失 id 报错后 tree scene 仍成功。另一次会话验证 init 前 help、help extra 单行错误、随后成功创建圆并 show，Ctrl+D 均退出 0。
+- **模式与偏差**：复用 Factory/Registry、EditorSession Facade 和领域抽象；格式化职责留应用层，没有新增 Strategy 或标签分派。查询不构造编辑 Command；history 尚未实现，不能声称已验证查询保留 undo/redo。显示采用规范 width/height 和每属性一行，需求未规定的排版决策已写入第 5.2 节。help 仅列当前全部已实现命令，最终阶段须覆盖完整需求命令集。
+- **发现与修正**：已有 getter 缺少统一显示入口，直接读取具体类型会违反分派约束；属性视图和多态已纠正。初版扩展帮助把未知参数显示为可选，改为语法未提供提示并测试。过程记录及实际 import 抽样已更新 doc/README.md；根 README 同步当前命令与可回放示例。
+- **阻塞与下一阶段**：无。4A 接入 HistoryManager 和 CLI undo/redo，建立“成功编辑入栈、失败不改历史、undo/redo 成功后移动栈项、撤销后新编辑清空 redo、查询保留历史、成功 init 清空并锁定直到下一次成功编辑”的回归；delete/move/scale/set 留后续阶段。
