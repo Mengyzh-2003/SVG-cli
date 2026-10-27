@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 的工程配置已推送且双平台 CI 通过，REPL 与测试已实现、等待提交及 CI 验收；其余阶段未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成，工程配置、换行修正、REPL 分别提交并推送，REPL 实现的 Windows/Linux CI 均通过；其余阶段未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -238,7 +238,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 
 | 阶段 | 状态 | 验收证据 / 实现 SHA / 推送与 CI | 阻塞项 | 下一步 |
 |---|---|---|---|---|
-| 1 工程与 REPL | 进行中 | 配置提交 a65140f、换行修正 9ca1c8a 均已推送，后者 Windows/Linux CI 通过；REPL 本地 10 项测试、类型检查、构建、格式检查与真实终端验收通过，提交及 CI 待核实 | 无 | 单独提交并推送 REPL，核验双平台 CI 后记录完成 |
+| 1 工程与 REPL | 完成 | a65140f 配置、9ca1c8a 换行修正、6e9f262 REPL 均已推送；REPL 的 [CI 40463661746](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40463661746) Windows/Linux 均通过；本地 10 项测试、类型检查、构建、格式检查与真实终端验收通过 | 无 | 等待阶段 2 任务；词法 Parser 与错误边界测试 |
 | 2 词法 Parser | 未开始 | — | 无，依赖 1 | 按阶段 2 验收 |
 | 3A 领域与工厂 | 未开始 | — | 无，依赖 2 | 按阶段 3A 验收 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
@@ -273,11 +273,13 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 ### 阶段 1 验收记录（2026-10-27）
 
-- **状态**：进行中。工程配置已验收；REPL 已完成本地验收，等待独立提交、推送和双平台 CI。
+- **状态**：完成。工程配置、REPL、自动化测试和手工终端验收均完成，实现提交已推送并通过双平台 CI。完成记录以独立文档提交保存；该记录提交自身的推送和 CI 结果在阶段报告核实。
 - **环境**：Windows；Node.js 24.15.0、npm 11.12.1。锁文件使用 npm 官方源；`npm ci --registry=https://registry.npmjs.org` 成功，官方源依赖审计 0 漏洞。
 - **工程模块**：`a65140fc12c470a3bce460510649dde50ac67554` 建立工程、质量脚本和 CI，已推送至 origin/main。首次 [CI 40461811313](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40461811313) 的 Linux 成功，Windows 格式检查失败；未将首次失败记作验收通过。
 - **独立修正**：`9ca1c8a3c83b0f64b3d41cc0135efad1878d8eb7` 统一检出换行与 Prettier 换行规则，已推送；[CI 40462330364](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40462330364) 的 Windows/Linux 均 completed/success。
+- **REPL 模块**：`6e9f262e98c7c9be24d581b03a6a96490c4cb965` 实现输入循环、统一输出、可注入执行器和 10 项行为测试，单独推送至 origin/main；2026-10-27 使用 `git ls-remote` 核实远程分支与本地实现 SHA 一致。[CI 40463661746](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40463661746) 对应这一精确 SHA，Windows/Linux 均 completed/success，执行干净安装、格式检查、源码/测试类型检查、构建和测试。
 - **REPL 本地证据**：`npm run typecheck` 检查源码和测试；`npm run build`、`npm run format:check`、`git diff --check` 通过。`npm test`：2 个测试文件、10 项通过，覆盖真实输入循环、输出、异常后继续、空输入 EOF、CRLF、末行无换行、原始文本保留、异步执行顺序、输入流错误及真实入口子进程。
-- **手工终端验收**：在 Windows PTY 执行 `node dist/main.js`，看到欢迎语与 `svg>`；依次输入空行、`# terminal check`、`init`，前两项继续提示，后一项输出单行阶段占位错误；在空提示符 Ctrl+D 后退出码为 0。
+- **手工终端验收**：在 Windows PTY 执行 `node dist/main.js`，看到欢迎语与 `svg>`；依次输入空行、`# terminal check`、`init`，前两项继续提示，后一项输出单行阶段占位错误；在空提示符 Ctrl+D 后退出码为 0。另以 `npm run cli` 启动源码入口并 Ctrl+D 退出，结果一致。
 - **架构落地**：已建立 Repl、TerminalOutput、LineExecutor 和 CommandResult。CLI 使用依赖注入；本阶段未声称实现 Command、Composite、Factory/Registry 或 EditorSession Facade，也未接入领域状态。
-- **阻塞项**：无。下一步推送 REPL 小模块并核查其精确 SHA 的 Windows/Linux CI；阶段 2 尚未开始。
+- **阻塞项**：无。REPL 推送曾因 GitHub 连接超时和本机多账号凭据选择等待失败，已通过单次命令选择可用 HTTPS 解析地址及现有正确账号完成；未修改远程地址、系统网络配置或关闭证书校验。
+- **下一阶段目标**：阶段 2 实现通用 CommandParser，保留词元值与 quoted 标记，处理双引号、约定转义、空行和整行注释，词法错误不得调用执行入口；不提前实现领域模型或业务命令。阶段 2 尚未开始，当前不创建 final tag。

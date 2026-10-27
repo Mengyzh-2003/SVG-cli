@@ -252,7 +252,7 @@ end note
 
 ## 质量保证手段
 
-阶段 1 已执行：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查；`test/cli/Repl.test.ts` 9 项及 `test/cli/Main.test.ts` 1 项共 10 项行为测试通过。真实 Windows PTY 运行编译产物，验证欢迎语、提示符、空行、注释、占位错误及 Ctrl+D 正常退出。配置修正提交的 Windows/Linux CI 已通过；REPL 提交的精确 SHA、CI 和阶段最终状态持续记录在根开发方案第 8 节。
+阶段 1 已执行：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查；`test/cli/Repl.test.ts` 9 项及 `test/cli/Main.test.ts` 1 项共 10 项行为测试通过。真实 Windows PTY 运行编译产物，验证欢迎语、提示符、空行、注释、占位错误及 Ctrl+D 正常退出；`npm run cli` 亦已启动并正常退出。配置修正提交和 REPL 提交 `6e9f262e98c7c9be24d581b03a6a96490c4cb965` 的 Windows/Linux CI 均已通过，后者见 [CI 40463661746](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40463661746)。实现 SHA、推送核实和阶段最终状态记录在根开发方案第 8 节。
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
