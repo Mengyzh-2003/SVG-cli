@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 已完成并补强回归测试，阶段 2 已完成，阶段 3A 进行中。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1、阶段 2 和阶段 3A 已完成，下一步为阶段 3B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -242,8 +242,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 阶段 | 状态 | 验收证据 / 实现 SHA / 推送与 CI | 阻塞项 | 下一步 |
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
-| 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 等待阶段 3A 任务 |
-| 3A 领域与工厂 | 进行中 | 3A.1 `34de27b`、3A.2 `1db5e7f` 已分别推送；[3A.1 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40468255670)、[3A.2 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40470080167) Windows/Linux 均通过；3A.3 文档树本地验收中 | 无 | 独立提交并推送 3A.3，核实后记录 3A 完成证据 |
+| 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
+| 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 等待阶段 3B 任务 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
@@ -300,3 +300,16 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **依赖与模式**：Parser 只依赖 application 数据契约，无文件系统或领域依赖；application 不引用 CLI；未增加名字分派。依赖注入与只读请求边界已落地，业务 Command、Composite、Factory/Registry 和 Facade 仍在后续阶段，不提前计数。
 - **计划澄清**：原文“本阶段测试注册项契约”与阶段 3B 才引入注册项不一致，改为本阶段测试请求/执行器契约，阶段 3B 再测试注册项及语义校验，避免提前创建空框架。引号拼接等未规定行为已列为本方案决策。
 - **阻塞与下一步**：无。阶段 3A 将实现领域抽象、文档树/id 索引、六种具体图形与工厂，验收构造、id 冲突、父子关系、同级顺序及模型受控修改；阶段 3B 再接入 EditorSession、分派器、init 与 CreateCommand。本次不开始阶段 3，不创建 final tag。
+
+### 阶段 3A 验收记录（2026-10-27）
+
+- **状态**：完成。按 3A.1 → 3A.2 → 3A.3 顺序分别验收、提交、push 并核实双平台 CI 后，才进入下一模块；完成记录另作小型文档提交，其自身推送和 CI 在阶段报告核实。
+- **3A.1 图形契约**：提交 `34de27b4a1628f09bb1026644d9837cd441b4c71` 已推送；[CI 40468255670](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40468255670) 对应该精确 SHA，Windows/Linux 均 completed/success。Shape 封装大小写敏感 id 和可缺省公共样式；ContainerShape 提供容器类型边界，增加 4 项领域测试。
+- **3A.2 六种图形与工厂**：提交 `1db5e7ff42b6cf2d06a7e105de0c1e0b7178e5f6` 已推送并以 ls-remote 核实；[CI 40470080167](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40470080167) 对应该精确 SHA，Windows/Linux 均 completed/success。六种独立图形类、带类型的创建数据和 Factory/Registry 落地；增加 15 项测试，共 63 项通过。有限数值、非负尺寸、可缺省样式、未知类型、重复注册及扩展结果身份均有验证；box 未实现。
+- **3A.3 文档树与索引**：提交 `45aa8c8146b98f39b0c8024289c496de513e2b8e` 已推送，ls-remote 核实 origin/main 与本地 SHA 一致；[CI 40470589609](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40470589609) 对应该精确 SHA，Windows/Linux 均 completed/success。SvgDocument 统一维护尺寸、根顺序、父子关系、全树 id 索引与实例归属；增加 28 项文档测试，共 91 项通过。
+- **文档树验收**：覆盖默认 800×600 与有限正数画布、大小写敏感 id、显式同级插入、嵌套查询、整树/子树前序遍历、叶子与容器的摘除/恢复、原对象行为保留及冻结快照。重复 id、缺失/叶子父节点、非法位置、环、重复子节点和跨文档重复实例均拒绝，比较失败前后的树、顺序、父节点、索引与候选归属确认无部分变更。千层树的插入、遍历和摘除恢复采用迭代处理；这是领域健壮性检查，不改变阶段 6 的 XML 深度上限。
+- **本地质量门槛**：Windows，Node.js 24.15.0 / npm 11.12.1；`npm run typecheck`、`npm test`（pretest 构建后 6 文件 91 项通过）、`npm run format:check`、`git diff --check` 均通过。原 44 项 Parser/REPL/入口回归全部保留。
+- **模式与依赖自查**：Factory/Registry 已实现，图形树建立 Composite 结构基础；几何递归操作留待 4B/4C，未声称完整 Composite 行为已验收。领域仅依赖领域抽象和数据契约；具体图形不反向依赖工厂，未引入额外类型名分派。详见 doc/README.md 一致性自查。
+- **发现与修正**：生成工厂的开放类型 specification 与内置数据边界重叠，且扩展回调可返回错误身份，已通过入口互斥、重复注册保护与结果核对修正并测试，记录于过程记录。父子关系只保存在 SvgDocument，不在 Shape 上复制；摘除快照只表示拓扑，后续命令另存原位置及几何状态。
+- **当前交付边界**：本阶段提供内部领域 API；CLI 仍使用阶段 2 的明确占位执行器，因此不进行虚假的 create/tree/show CLI 成功演示。没有阻塞项；远程公共 API 经代理一度限流，改用直连公共 API 后完成核实，未修改持久 Git/系统代理。
+- **下一阶段 3B**：建立 EditorSession Facade、CommandDispatcher 和 Command 契约；提前实现 init；以 CreateCommand 接入首次图形编辑。CLI 几何参数与尾部未加引号 in 的验证接入同一工厂注册表；覆盖未初始化、参数数量/数值、缺少/重复 id、错误目标和未知类型，失败不改文档。3C 再接 tree/show/help；4A 再验收完整 undo/redo。本次不开始 3B，不创建 final tag。
