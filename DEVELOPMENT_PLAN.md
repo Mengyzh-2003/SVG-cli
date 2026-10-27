@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1、阶段 2 和阶段 3A 已完成，阶段 3B 正在验收。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1–2、3A–3B 已完成，下一阶段为 3C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -246,7 +246,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
-| 3B init/create Command | 待验收 | 3B.1 `3659408` + 文档 `f16c816` 已推送，双平台 [CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 本地 156 项测试通过，待推送与 CI | 无 | 验收 3B.2 后记录完成 |
+| 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 等待阶段 3C 任务 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
@@ -315,3 +315,16 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **发现与修正**：生成工厂的开放类型 specification 与内置数据边界重叠，且扩展回调可返回错误身份，已通过入口互斥、重复注册保护与结果核对修正并测试，记录于过程记录。父子关系只保存在 SvgDocument，不在 Shape 上复制；摘除快照只表示拓扑，后续命令另存原位置及几何状态。
 - **当前交付边界**：本阶段提供内部领域 API；CLI 仍使用阶段 2 的明确占位执行器，因此不进行虚假的 create/tree/show CLI 成功演示。没有阻塞项；远程公共 API 经代理一度限流，改用直连公共 API 后完成核实，未修改持久 Git/系统代理。
 - **下一阶段 3B**：建立 EditorSession Facade、CommandDispatcher 和 Command 契约；提前实现 init；以 CreateCommand 接入首次图形编辑。CLI 几何参数与尾部未加引号 in 的验证接入同一工厂注册表；覆盖未初始化、参数数量/数值、缺少/重复 id、错误目标和未知类型，失败不改文档。3C 再接 tree/show/help；4A 再验收完整 undo/redo。本次不开始 3B，不创建 final tag。
+
+### 阶段 3B 验收记录（2026-10-27）
+
+- **状态与顺序**：完成。3B.1 推送和 CI 核实后才开发 3B.2；完成记录另作文档提交，其自身远程及 CI 在阶段报告核实。本次不跨阶段接入查询或历史。
+- **3B.1 远程证据**：应用入口提交 `3659408e9650c2698441d49d33e1b33427e6869b`、文档修正 `f16c816532ffed585a79fd781593226c4a2c8f95` 一并推送，ls-remote 核实远程 main 为 f16c816；[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 对应精确 f16c816 SHA，Windows/Linux 均 success，验证包含 3659408 的全部代码。本地当时 8 文件 108 项通过。
+- **3B.2 远程证据**：`7854c5221f0bdc865e4a9b67c34fee4465500b90` 独立推送；2026-10-27 16:28–16:30（UTC+8）用 ls-remote 核实 origin/main 与本地一致；[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 对应此精确 SHA，Windows/Linux 均 completed/success。
+- **实际实现**：EditorSession Facade 经 CommandDispatcher 注册项执行 init/create；ShapeFactory 同一注册表提供结构化构造和 CLI schema，解析后返回候选 Shape 与 parentId；CreateCommand 保存图形实例、父 id 与首次同级位置，经领域接口插入/摘除。main 显式注入工厂。工厂词元采用 shapes 内只读结构契约，未反向依赖 application。
+- **验收范围**：默认/单参数/浮点画布；六种类型根级及嵌套、可选样式和缺省样式、中文/空文本；文本/id in 与尾部 in 的区分。缺少或重复 id、参数数量/数值错误、非有限或负尺寸、错误父容器及 unknown box 被拒绝。失败前后比较画布、节点实例、索引、父关系、遍历和同级顺序，并验证后续正常命令可继续。
+- **Command 边界**：直接验证执行→undo→再次 execute，恢复原身份与顺序，失败插入不推进命令状态。会话尚无 HistoryManager，CLI undo/redo、IO 锁定与 redo 清空留待 4A，不误报完整历史能力。
+- **本地质量与手工证据**：Windows，Node.js 24.15.0 / npm 11.12.1；typecheck、npm test（先构建，10 文件 156 项）、format:check、git diff --check 全部通过。源码/编译入口各回放六种创建、嵌套及连续错误恢复。在 Windows PTY 实际创建 400×200 画布、scene 与中文文本，错误父目标 label 输出单行 not a container 后仍可创建矩形；Ctrl+D 退出码 0。
+- **发现与修正**：初版工厂适配器 parentId 固定 null，空字符串坐标可经 Number 转成 0；已补齐返回边界、空值拒绝及回归。当前入口文档已同步移除占位描述。详细过程与依赖自查见 doc/README.md。
+- **阻塞**：无。推送采用命令级代理与已有正确账户选项；匿名 API 限流后从公开 Actions 页面核实 SHA/CI，未更改持久配置或输出凭据。
+- **下一阶段 3C**：接入 tree/show/help；帮助来自注册信息，显示采用多态属性视图，不增加类型名分派。验证层级、顺序、几何属性、show parent、help 未初始化可用及 init→create→tree/show 会话。继续逐模块测试、提交、push 与 CI 核实，不创建 final tag。
