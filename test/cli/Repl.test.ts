@@ -1,36 +1,38 @@
 import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import type { CommandResult } from '../../src/application/CommandResult.js';
-import type { LineExecutor } from '../../src/cli/LineExecutor.js';
+import type { CommandExecutor } from '../../src/application/CommandExecutor.js';
+import { CommandParser } from '../../src/cli/parser/CommandParser.js';
 import { Repl } from '../../src/cli/Repl.js';
 
 async function runRepl(
   inputText: string,
-  executor: LineExecutor,
+  executor: CommandExecutor,
+  parser = new CommandParser(),
 ): Promise<string> {
   const input = new PassThrough();
   const output = new PassThrough();
   input.end(inputText);
-  const repl = new Repl(input, output, executor);
+  const repl = new Repl(input, output, executor, false, parser);
   await repl.run();
   return output.read()?.toString() ?? '';
 }
 
 describe('Repl', () => {
   it('executes each nonblank, noncomment line and prompts after each line', async () => {
-    const execute = vi.fn<LineExecutor['execute']>((line) => ({
+    const execute = vi.fn<CommandExecutor['execute']>((request) => ({
       status: 'success',
-      lines: [`handled ${line}`],
+      lines: [`handled ${request.name}`],
     }));
     const output = await runRepl('\n# script comment\nfirst\nsecond\n', {
       execute,
     });
 
     expect(execute).toHaveBeenCalledTimes(2);
-    expect(execute).toHaveBeenNthCalledWith(1, 'first');
-    expect(execute).toHaveBeenNthCalledWith(2, 'second');
+    expect(execute).toHaveBeenNthCalledWith(1, { name: 'first', args: [] });
+    expect(execute).toHaveBeenNthCalledWith(2, { name: 'second', args: [] });
     expect(output).toContain(
-      'SVG CLI — stage 1: REPL ready; editing commands are not connected.\nsvg> ',
+      'SVG CLI — stage 2: REPL and parser ready; editing commands are not connected.\nsvg> ',
     );
     expect(output).toContain('handled first\nsvg> handled second\nsvg> ');
     expect(output).not.toContain('script comment');
@@ -47,9 +49,88 @@ describe('Repl', () => {
     expect(output).toContain('warning: sample warning\nsession ready\n');
   });
 
+  it('delegates every original line to the parser without prefiltering', async () => {
+    const parser = new CommandParser();
+    const request = { name: 'forwarded', args: [] };
+    const parse = vi
+      .spyOn(parser, 'parse')
+      .mockReturnValue({ status: 'command', request });
+    const execute = vi.fn<CommandExecutor['execute']>(() => ({
+      status: 'success',
+      lines: [],
+    }));
+
+    await runRepl('\n \t\n  # comment\n  help  \n', { execute }, parser);
+
+    expect(parse.mock.calls).toEqual([
+      [''],
+      [' \t'],
+      ['  # comment'],
+      ['  help  '],
+    ]);
+    expect(execute).toHaveBeenCalledTimes(4);
+    expect(execute).toHaveBeenLastCalledWith(request);
+  });
+
+  it.each([
+    ['set t1 text "unfinished', 'unterminated double quote'],
+    ['set t1 text "in"suffix', 'expected whitespace after closing quote'],
+    ['set t1 text prefix"in"', 'double quote must begin an argument'],
+    ['"" arg', 'expected a command name'],
+  ])(
+    'never executes a lexical error and recovers on the next line: %j',
+    async (line, message) => {
+      const executedNames: string[] = [];
+      const execute = vi.fn<CommandExecutor['execute']>((request) => {
+        executedNames.push(request.name);
+        return { status: 'success', lines: ['next line worked'] };
+      });
+
+      const output = await runRepl(`${line}\nhelp\n`, { execute });
+
+      expect(execute).toHaveBeenCalledExactlyOnceWith({
+        name: 'help',
+        args: [],
+      });
+      expect(executedNames).toEqual(['help']);
+      expect(output.match(/error: /g)).toHaveLength(1);
+      expect(output).toContain(
+        `error: ${message}\nsvg> next line worked\nsvg> `,
+      );
+    },
+  );
+
+  it('forwards unknown commands and semantically invalid arguments without interpretation', async () => {
+    const execute = vi.fn<CommandExecutor['execute']>(() => ({
+      status: 'success',
+      lines: [],
+    }));
+
+    await runRepl('future-command "" "in" in scene\nmove r1 not-a-number\n', {
+      execute,
+    });
+
+    expect(execute).toHaveBeenNthCalledWith(1, {
+      name: 'future-command',
+      args: [
+        { value: '', quoted: true },
+        { value: 'in', quoted: true },
+        { value: 'in', quoted: false },
+        { value: 'scene', quoted: false },
+      ],
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, {
+      name: 'move',
+      args: [
+        { value: 'r1', quoted: false },
+        { value: 'not-a-number', quoted: false },
+      ],
+    });
+  });
+
   it('formats returned errors on one line and continues reading', async () => {
     const execute = vi
-      .fn<LineExecutor['execute']>()
+      .fn<CommandExecutor['execute']>()
       .mockReturnValueOnce({
         status: 'error',
         message: 'bad input\nwith details',
@@ -65,7 +146,7 @@ describe('Repl', () => {
 
   it('converts thrown exceptions to one-line errors without ending the loop', async () => {
     const execute = vi
-      .fn<LineExecutor['execute']>()
+      .fn<CommandExecutor['execute']>()
       .mockRejectedValueOnce(new Error('unexpected\nexception'))
       .mockReturnValueOnce({ status: 'success', lines: ['next line worked'] });
     const output = await runRepl('first\nsecond\n', { execute });
@@ -77,15 +158,15 @@ describe('Repl', () => {
   });
 
   it('exits normally on EOF with no input', async () => {
-    const execute = vi.fn<LineExecutor['execute']>();
+    const execute = vi.fn<CommandExecutor['execute']>();
     const output = await runRepl('', { execute });
 
     expect(execute).not.toHaveBeenCalled();
-    expect(output).toContain('SVG CLI — stage 1: REPL ready');
+    expect(output).toContain('SVG CLI — stage 2: REPL and parser ready');
   });
 
-  it('keeps leading whitespace, colours and quoted text intact for the later parser', async () => {
-    const execute = vi.fn<LineExecutor['execute']>(() => ({
+  it('forwards parsed colours and quoted text through CRLF and a final line without newline', async () => {
+    const execute = vi.fn<CommandExecutor['execute']>(() => ({
       status: 'success',
       lines: [],
     }));
@@ -94,10 +175,25 @@ describe('Repl', () => {
       { execute },
     );
 
-    expect(execute.mock.calls).toEqual([
-      ['  create text t1 0 0 "中文 # in"'],
-      ['set r1 fill #fff'],
-    ]);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenNthCalledWith(1, {
+      name: 'create',
+      args: [
+        { value: 'text', quoted: false },
+        { value: 't1', quoted: false },
+        { value: '0', quoted: false },
+        { value: '0', quoted: false },
+        { value: '中文 # in', quoted: true },
+      ],
+    });
+    expect(execute).toHaveBeenNthCalledWith(2, {
+      name: 'set',
+      args: [
+        { value: 'r1', quoted: false },
+        { value: 'fill', quoted: false },
+        { value: '#fff', quoted: false },
+      ],
+    });
   });
 
   it('awaits each asynchronous execution before starting the next buffered line', async () => {
@@ -112,7 +208,7 @@ describe('Repl', () => {
       release = resolve;
     });
     const execute = vi
-      .fn<LineExecutor['execute']>()
+      .fn<CommandExecutor['execute']>()
       .mockImplementationOnce(() => {
         started();
         return firstResult;
@@ -162,7 +258,7 @@ describe('Repl', () => {
     const result = new Promise<CommandResult>((resolve) => {
       release = resolve;
     });
-    const execute = vi.fn<LineExecutor['execute']>(() => {
+    const execute = vi.fn<CommandExecutor['execute']>(() => {
       started();
       return result;
     });

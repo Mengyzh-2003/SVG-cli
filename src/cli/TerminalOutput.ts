@@ -10,7 +10,7 @@ export class TerminalOutput {
 
   welcome(): void {
     this.#output.write(
-      'SVG CLI — stage 1: REPL ready; editing commands are not connected.\n',
+      'SVG CLI — stage 2: REPL and parser ready; editing commands are not connected.\n',
     );
   }
 

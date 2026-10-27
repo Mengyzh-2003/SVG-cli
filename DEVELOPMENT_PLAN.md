@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-阶段 1 的实际接线为 `main.ts → Repl → LineExecutor → CommandResult → TerminalOutput`。`LineExecutor` 是 CLI 持有的可注入原始行执行契约，不是命令分派器或完整 Facade；当前入口返回明确的阶段占位错误。空行/整行注释暂在 Repl 跳过，阶段 2 移入 Parser；阶段 3 再由真实 EditorSession 适配执行入口，不保留双重过滤或两套业务路径。
+当前实际接线为 `main.ts → Repl → CommandParser → CommandExecutor → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；阶段 1 的 CLI LineExecutor 原始行接口已删除。空行/整行注释全部交由 Parser，REPL 不再过滤；词法错误不调用执行器。当前入口仍返回明确的阶段占位错误，阶段 3 再由 EditorSession 实现此契约；尚未实现命令分派器或完整 Facade。
 
 ### 3.2 主流程与分派限制
 
@@ -240,7 +240,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 阶段 | 状态 | 验收证据 / 实现 SHA / 推送与 CI | 阻塞项 | 下一步 |
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
-| 2 词法 Parser | 进行中 | 2A 已实现请求契约与纯词法 Parser，新增 24 项词法测试，连同原回归共 36 项本地通过；尚未接入 REPL，提交与 CI 待核实 | 无 | 推送 2A 后实施 2B 接线与错误拦截 |
+| 2 词法 Parser | 进行中 | 2A `99b3908` 已推送，[CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) Windows/Linux 通过；2B 已完成接线及本地 44 项测试、交互验收，待提交推送与 CI | 无 | 单独推送 2B 并核实双平台 CI |
 | 3A 领域与工厂 | 未开始 | — | 无，依赖 2 | 按阶段 3A 验收 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
@@ -283,13 +283,17 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **手工终端验收**：在 Windows PTY 执行 `node dist/main.js`，看到欢迎语与 `svg>`；依次输入空行、`# terminal check`、`init`，前两项继续提示，后一项输出单行阶段占位错误；在空提示符 Ctrl+D 后退出码为 0。另以 `npm run cli` 启动源码入口并 Ctrl+D 退出，结果一致。
 - **架构落地**：已建立 Repl、TerminalOutput、LineExecutor 和 CommandResult。CLI 使用依赖注入；本阶段未声称实现 Command、Composite、Factory/Registry 或 EditorSession Facade，也未接入领域状态。
 - **阻塞项**：无。REPL 推送曾因 GitHub 连接超时和本机多账号凭据选择等待失败，已通过单次命令选择可用 HTTPS 解析地址及现有正确账号完成；未修改远程地址、系统网络配置或关闭证书校验。
-- **下一阶段目标**：阶段 2 实现通用 CommandParser，保留词元值与 quoted 标记，处理双引号、约定转义、空行和整行注释，词法错误不得调用执行入口；不提前实现领域模型或业务命令。阶段 2 尚未开始，当前不创建 final tag。
+- **当时的下一阶段目标**：阶段 2 实现通用 CommandParser，保留词元值与 quoted 标记，处理双引号、约定转义、空行和整行注释，词法错误不得调用执行入口；不提前实现领域模型或业务命令。此为阶段 1 完成时的记录，当前进度见下文，不创建 final tag。
 
 阶段一非阻塞建议补强（2026-10-27）：采纳编译入口 CI 冒烟与异步执行期间输入流失败回归建议。`npm test` 现在先构建，再运行源码/编译入口及 REPL 测试，共 12 项通过；生产 REPL 无须修复。提交 `acb500b26fad7bbc1ae929d8e60a9e68487c40cb` 已推送，远程 SHA 已核实；[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过。Git 直连不稳定，发现系统代理可用后仅在命令级使用该代理完成推送；未修改持久配置。
 
 ### 阶段 2 实施记录（2026-10-27）
 
-- **状态**：进行中，2A 本地验收完成，尚未开始 2B。
-- **2A 实际实现**：application 定义只读 CommandRequest/CommandToken；CommandParser 返回 skip/error/command 三类结果。空行和注释过滤已在 Parser 内实现，但 REPL 的旧过滤在 2B 原子替换接线时删除，当前没有双重接线。
-- **本地证据**：24 项词法测试覆盖引号、空文本、中文、#、in、转义/Windows 路径、非法引号、不执行 shell 语法、错误后恢复及纯词法边界；原 12 项回归保持。合计 36 项测试通过，构建通过；提交与 CI 另行核实。
+- **状态**：进行中，2A 完成；2B 本地验收完成，待提交推送及 CI 核实。
+- **2A 实际实现与远程证据**：application 定义只读 CommandRequest/CommandToken；CommandParser 返回 skip/error/command 三类结果。提交 `99b3908c91ba370706018bef5034d121ebfbab60` 在开始 2B 前已单独推送，ls-remote SHA 核实一致；[CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 对应该精确 SHA，Windows/Linux 均 completed/success。2A 新增 24 项词法测试，加原 12 项回归共 36 项通过。
+- **2B 实际实现**：Repl 每行原文交给 Parser，删除旧过滤；只对 command 结果调用 application CommandExecutor，对 error 统一呈现并继续。删除 CLI LineExecutor；组合根注入 Parser 和结构化占位执行器，后续 EditorSession 实现同一契约。欢迎语及根 README 如实说明当前能力。
+- **本地证据**：Node.js 24.15.0 / npm 11.12.1，`npm test` 先构建再运行，3 文件 44 项通过（Parser 24、REPL 16、入口 4）；`npm run typecheck`、`npm run format:check`、`git diff --check` 均通过。覆盖引号、空文本、中文、#、in、转义/Windows 路径、词法错误不执行、错误恢复和语义透传；保留异步顺序、异步执行中输入失败、EOF/CRLF 及源码/编译入口回归。
+- **手工验收**：Windows PTY 启动编译入口，空行及 `# "unclosed comment` 跳过；未闭合文本输出单行词法错误；下一条含中文/#/in 的完整命令进入阶段占位执行器；Ctrl+D 后退出码 0。
+- **依赖与模式**：Parser 只依赖 application 数据契约，无文件系统或领域依赖；application 不引用 CLI；未增加名字分派。依赖注入与只读请求边界已落地，业务 Command、Composite、Factory/Registry 和 Facade 仍在后续阶段，不提前计数。
 - **计划澄清**：原文“本阶段测试注册项契约”与阶段 3B 才引入注册项不一致，改为本阶段测试请求/执行器契约，阶段 3B 再测试注册项及语义校验，避免提前创建空框架。引号拼接等未规定行为已列为本方案决策。
+- **阻塞与下一步**：无；先推送 2B 并核实 CI，通过后独立记录阶段完成。阶段 3A 将实现领域抽象、文档树/id 索引、六种具体图形与工厂，本次不开始阶段 3。

@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求补充：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1 已建立工程与 REPL；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
+架构基线：2026-10-26，v1.1；执行与质量要求补充及 Parser 接线更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。已建立工程、REPL、纯词法 Parser 和结构化执行契约；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
 
 ## 架构方案
 
@@ -73,7 +73,7 @@ doc/
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
 
-阶段 1 的实际流程先收敛为 `main.ts → Repl → LineExecutor → CommandResult → TerminalOutput`。`LineExecutor` 是 CLI 的可注入原始行执行契约，便于在没有领域模型时测试输入循环；真实入口明确返回“业务命令尚不可用”，不模拟编辑成功。空行与整行注释暂由 Repl 过滤，阶段 2 移交 Parser，阶段 3 接入 EditorSession。该临时接线不增加命令名分派，也不作为完整 Facade 或 Strategy 模式计数。
+当前实际流程为 `main.ts → Repl → CommandParser → CommandExecutor → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，已删除阶段 1 的空行/注释过滤和 CLI `LineExecutor` 原始行接口；词法错误只呈现，不调用执行器。真实入口仍明确返回“业务命令尚不可用”，阶段 3 的 EditorSession 将实现此契约。该接线不增加命令名分派，也不作为完整 Facade 或 Strategy 模式计数。
 
 ### 4. PlantUML 组件图
 
@@ -259,19 +259,21 @@ end note
 
 ## 一致性自查
 
-阶段 1 实际源码抽样（2026-10-27）：
+阶段 2 实际源码抽样（2026-10-27）：
 
-1. **模块划分与封装**：`src/cli/Repl.ts`、`TerminalOutput.ts` 各自单类同名文件，使用私有字段封装流、执行器和输出；`LineExecutor.ts` 是接口，`src/application/CommandResult.ts` 是无 IO 的结构化结果类型。`src/main.ts` 负责装配。领域、命令、图形与 IO 目录按后续阶段建立，没有空类占位。
-2. **依赖方向**：逐项检查上述文件 import：CLI 依赖 application 的结果类型和 CLI 内部接口；application 结果类型无 import；组合根依赖 CLI；测试依赖公开接口与 Node 流/进程。未发现反向依赖。当前没有按命令名或图形名分派，计划中的两处注册表仍未实现。
-3. **模式实际状态**：本阶段使用依赖注入隔离终端和行执行器，尚未实现业务 Command、Composite、Factory/Registry 和 Facade。后续首个 CreateCommand、图形树及 EditorSession 落地时补充实际证据，不提前计入模式使用。
+1. **模块划分与封装**：`src/cli/Repl.ts`、`TerminalOutput.ts`、`src/cli/parser/CommandParser.ts` 各自单类同名文件；REPL/输出使用私有字段，Parser 无跨行可变状态。application 的请求/词元为只读传输契约，执行器为接口，不承担领域模型职责。`src/main.ts` 显式装配 Parser 和执行器。已删除临时 `src/cli/LineExecutor.ts`；领域、命令、图形与 IO 按后续阶段建立，没有空类占位。
+2. **依赖方向**：逐项检查实际 import：CLI 依赖应用契约与内部 Parser；Parser 仅依赖 application 的请求/词元类型；application 契约只互相引用，不依赖 CLI 或 Node IO；组合根依赖 CLI 与应用契约；测试依赖公开接口与 Node 流/进程。未发现反向依赖。Parser 没有按命令名或图形名分派，计划中的两处注册表仍未实现。
+3. **模式实际状态**：使用依赖注入隔离终端、Parser 和结构化执行器，尚未实现业务 Command、Composite、Factory/Registry 和 Facade。只读请求契约不等于业务 Command 对象；后续首个 CreateCommand、图形树及 EditorSession 落地时补充实际证据，不提前计入模式使用。
 
 ## 质量保证手段
 
-阶段 1 已执行：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查；`test/cli/Repl.test.ts` 9 项及 `test/cli/Main.test.ts` 1 项共 10 项行为测试通过。真实 Windows PTY 运行编译产物，验证欢迎语、提示符、空行、注释、占位错误及 Ctrl+D 正常退出；`npm run cli` 亦已启动并正常退出。配置修正提交和 REPL 提交 `6e9f262e98c7c9be24d581b03a6a96490c4cb965` 的 Windows/Linux CI 均已通过，后者见 [CI 40463661746](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40463661746)。实现 SHA、推送核实和阶段最终状态记录在根开发方案第 8 节。
+当前本地证据：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查通过。3 个测试文件共 44 项通过：Parser 24 项、REPL 16 项、源码/编译入口各 2 项。保留阶段 1 的异步顺序、输入失败、异步执行中输入失败、CRLF/EOF 等回归；新增 Parser 全行接管、词法错误执行器零调用、错误后恢复、引号来源透传和无语义分派验证。此时没有领域模型，错误测试证明不进入执行入口，不冒称已验证领域快照不变。
+
+手工证据：在 Windows PTY 运行 `node dist/main.js`，验证空行、含未闭合引号的整行注释被跳过，未闭合文本输出一行词法错误，下一条中文/含 #/in 的合法词法输入到达阶段占位执行器，空提示符 Ctrl+D 退出码为 0。源码与编译入口都由真实子进程测试持续验证。阶段 1 补强提交 [CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) 与阶段 2A [CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 均在 Windows/Linux 通过；阶段 2B 的精确实现 SHA、远程与 CI 结果在根开发方案第 8 节追加核实。
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
-- 对解析器、id 唯一性、图形属性、父子关系、Composite 移动/缩放和失败状态不变性编写测试。
+- 扩展命令注册项语义、id 唯一性、图形属性、父子关系、Composite 移动/缩放和失败状态不变性测试；Parser 的现有回归持续保留。
 - 对每个编辑命令验证“执行 → undo → redo”，覆盖 redo 清空、IO 后禁止 undo 和错误命令不入栈。
 - 用含缺失 id、嵌套 g、文本和非法文件的 SVG 做读入测试，验证自动补 id 警告和错误前缀。
 - 对保存结果做 XML 检查，再 read 回来比较画布、层级、属性和文本，验证 round-trip。
