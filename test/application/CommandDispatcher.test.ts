@@ -3,6 +3,28 @@ import { CommandDispatcher } from '../../src/application/CommandDispatcher.js';
 import type { CommandResult } from '../../src/application/CommandResult.js';
 
 describe('CommandDispatcher', () => {
+  it('enumerates current registration syntax without invoking command handlers', () => {
+    const dispatcher = new CommandDispatcher();
+    const handler = vi.fn((): CommandResult => ({
+      status: 'success',
+      lines: [],
+    }));
+    let syntax = 'sample <id>';
+    dispatcher.register('sample', handler, () => [syntax]);
+    dispatcher.register('plain', handler);
+    const first = dispatcher.helpLines();
+    expect(first).toEqual(['sample <id>', 'plain']);
+    expect(Object.isFrozen(first)).toBe(true);
+    syntax = 'sample <id> [option]';
+    expect(dispatcher.helpLines()).toEqual(['sample <id> [option]', 'plain']);
+    expect(first).toEqual(['sample <id>', 'plain']);
+    expect(() =>
+      dispatcher.register('sample', handler, () => ['wrong']),
+    ).toThrow('command already registered');
+    expect(dispatcher.helpLines()).toEqual(['sample <id> [option]', 'plain']);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('dispatches exactly once with the original request', () => {
     const dispatcher = new CommandDispatcher();
     const handler = vi.fn((): CommandResult => ({

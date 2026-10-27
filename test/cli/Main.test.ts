@@ -6,6 +6,32 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('offers help before init and remains usable after invalid help', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: 'help\nhelp extra\ninit\ncreate circle c 1 2 3\nshow c\nhelp\n',
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(
+      result.stdout.match(/Available commands \(current implementation\):/g),
+    ).toHaveLength(2);
+    expect(result.stdout).toContain(
+      'create text <id> <x> <y> "content" [in <containerId>]',
+    );
+    expect(result.stdout).toContain('tree [id]\nshow <id>\nhelp\nsvg> ');
+    expect(result.stdout).toContain(
+      'error: usage: help\nsvg> canvas 800x600 created',
+    );
+    expect(result.stdout).toContain(
+      'circle#c  parent=svg\n  cx=1\n  cy=2\n  r=3',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(1);
+  });
+
   it('queries a real document and continues after query errors', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),

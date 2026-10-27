@@ -30,6 +30,7 @@ export type ShapeCliParser = (
 interface ShapeRegistration {
   readonly create: (specification: ShapeCreationSpecification) => Shape;
   readonly parseCli?: ShapeCliParser;
+  readonly cliSyntax?: string;
 }
 
 export class ShapeFactory {
@@ -113,6 +114,7 @@ export class ShapeFactory {
     type: string,
     creator: RegisteredShapeCreator,
     parseCli?: ShapeCliParser,
+    cliSyntax?: string,
   ): void {
     this.#registerCreator(
       type,
@@ -123,6 +125,19 @@ export class ShapeFactory {
         return creator(specification);
       },
       parseCli,
+      cliSyntax,
+    );
+  }
+
+  /** Enumerates CLI-capable registrations; syntax is held beside the parser. */
+  get creationSyntax(): readonly string[] {
+    return Object.freeze(
+      [...this.#creators.entries()]
+        .filter(([, registration]) => registration.parseCli !== undefined)
+        .map(
+          ([type, registration]) =>
+            `create ${type} ${registration.cliSyntax ?? '<id> (additional syntax not provided)'}`,
+        ),
     );
   }
 
@@ -181,6 +196,13 @@ export class ShapeFactory {
         return creator(specification as ShapeSpecificationByType[T]);
       },
       (id, args) => this.#parseBuiltin(type, schema, id, args),
+      [
+        '<id>',
+        ...schema.numbers.map((name) => `<${name}>`),
+        ...(schema.text ? ['"content"'] : []),
+        ...(schema.style ? [`[${schema.style}]`] : []),
+        '[in <containerId>]',
+      ].join(' '),
     );
   }
 
@@ -244,6 +266,7 @@ export class ShapeFactory {
     type: string,
     creator: (specification: ShapeCreationSpecification) => Shape,
     parseCli?: ShapeCliParser,
+    cliSyntax?: string,
   ): void {
     if (type.length === 0) {
       throw new Error('shape type cannot be empty');
@@ -251,9 +274,18 @@ export class ShapeFactory {
     if (this.#creators.has(type)) {
       throw new Error(`shape type already registered: ${type}`);
     }
+    if (
+      cliSyntax !== undefined &&
+      (parseCli === undefined || cliSyntax.trim().length === 0)
+    ) {
+      throw new Error(
+        `CLI syntax requires a parser and nonempty syntax: ${type}`,
+      );
+    }
     this.#creators.set(type, {
       create: creator,
       ...(parseCli === undefined ? {} : { parseCli }),
+      ...(cliSyntax === undefined ? {} : { cliSyntax }),
     });
   }
 }

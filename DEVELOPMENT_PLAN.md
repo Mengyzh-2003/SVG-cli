@@ -185,6 +185,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | 重组带样式或 transform 的 g | 按规定重建树关系，不额外计算世界坐标或补偿继承样式；外部变换下重组可能改变渲染，不能宣称保持视觉不变。必要时在阶段 6 记录更严格的支持边界 |
 | canvas 与 viewBox | init 默认 viewBox 为 0 0 w h；read 保留原 viewBox；canvas 修改尺寸时同步设为 0 0 w h，查询不改动 |
 | 查询显示格式 | tree 使用规范属性名 width/height，不使用 w/h 缩写；tree id 的根不带 svg 标题或连接线，叶子仅一行。show 根级 parent=svg，嵌套 parent=类型#id，每个显式属性独占一行。省略样式不补默认值；文本始终双引号，特殊字符转义，查询不修改原值 |
+| 分阶段 help 内容 | help 无参且未初始化可用，从现有注册项显示当前全部可执行命令，标题注明 current implementation；未实现命令不冒充可用。后续阶段注册命令时必须同时提供语法，最终验收覆盖需求的完整命令集合 |
 
 ## 6. 状态不变量与验证方法
 
@@ -250,7 +251,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
-| 3C tree/show/help | 进行中 | 3C.1 tree/show 本地构建、类型检查及 182 项测试通过，尚未核实推送/CI；help 尚未开始 | 无 | 3C.1 推送和 CI 验收后开发 3C.2 |
+| 3C tree/show/help | 进行中 | 3C.1 `53ab90c` 已推送，[CI 40476152693](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693) 双平台通过；3C.2 help 本地构建、类型检查及 189 项测试通过，待推送/CI | 无 | 3C.2 推送后完成阶段验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |

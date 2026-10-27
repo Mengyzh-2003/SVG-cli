@@ -2,24 +2,41 @@ import type { CommandRequest } from './CommandRequest.js';
 import type { CommandResult } from './CommandResult.js';
 import type { CommandHandler } from './CommandHandler.js';
 
-export class CommandDispatcher {
-  readonly #handlers = new Map<string, CommandHandler>();
+interface CommandRegistration {
+  readonly handler: CommandHandler;
+  readonly syntax: () => readonly string[];
+}
 
-  register(name: string, handler: CommandHandler): void {
+export class CommandDispatcher {
+  readonly #handlers = new Map<string, CommandRegistration>();
+
+  register(
+    name: string,
+    handler: CommandHandler,
+    syntax: () => readonly string[] = () => [name],
+  ): void {
     if (name.length === 0) {
       throw new Error('command name cannot be empty');
     }
     if (this.#handlers.has(name)) {
       throw new Error(`command already registered: ${name}`);
     }
-    this.#handlers.set(name, handler);
+    this.#handlers.set(name, { handler, syntax });
+  }
+
+  helpLines(): readonly string[] {
+    return Object.freeze(
+      [...this.#handlers.values()].flatMap((registration) => [
+        ...registration.syntax(),
+      ]),
+    );
   }
 
   dispatch(request: CommandRequest): CommandResult {
-    const handler = this.#handlers.get(request.name);
-    if (handler === undefined) {
+    const registration = this.#handlers.get(request.name);
+    if (registration === undefined) {
       return { status: 'error', message: `unknown command: ${request.name}` };
     }
-    return handler(request);
+    return registration.handler(request);
   }
 }

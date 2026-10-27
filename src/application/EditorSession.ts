@@ -15,10 +15,31 @@ export class EditorSession implements CommandExecutor {
 
   constructor(factory = new ShapeFactory()) {
     this.#factory = factory;
-    this.#dispatcher.register('init', (request) => this.#initialize(request));
-    this.#dispatcher.register('create', (request) => this.#create(request));
-    this.#dispatcher.register('tree', (request) => this.#tree(request));
-    this.#dispatcher.register('show', (request) => this.#show(request));
+    this.#dispatcher.register(
+      'init',
+      (request) => this.#initialize(request),
+      () => ['init [w] [h]'],
+    );
+    this.#dispatcher.register(
+      'create',
+      (request) => this.#create(request),
+      () => this.#factory.creationSyntax,
+    );
+    this.#dispatcher.register(
+      'tree',
+      (request) => this.#tree(request),
+      () => ['tree [id]'],
+    );
+    this.#dispatcher.register(
+      'show',
+      (request) => this.#show(request),
+      () => ['show <id>'],
+    );
+    this.#dispatcher.register(
+      'help',
+      (request) => this.#help(request),
+      () => ['help'],
+    );
   }
 
   get document(): SvgDocument | null {
@@ -41,6 +62,17 @@ export class EditorSession implements CommandExecutor {
       throw new Error("no document. use 'init' or 'read' first");
     }
     return this.#document;
+  }
+
+  #help(request: CommandRequest): CommandResult {
+    if (request.args.length !== 0) throw new Error('usage: help');
+    return {
+      status: 'success',
+      lines: [
+        'Available commands (current implementation):',
+        ...this.#dispatcher.helpLines(),
+      ],
+    };
   }
 
   #tree(request: CommandRequest): CommandResult {

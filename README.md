@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3A adds the domain model and shape factory; stage 3B connects `init` and `create` for all six built-in shapes. Queries, editing history and file operations follow in later stages; `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3A adds the domain model and shape factory; stage 3B connects `init` and `create` for all six built-in shapes; stage 3C adds `tree`, `show` and `help`. Editing history and file operations follow in later stages; `box` is outside the current project scope.
 
 ## Requirements
 
@@ -47,10 +47,20 @@ svg> create rect start 10 20 100 50 #eee in scene
 rect#start created in g#scene
 svg> create text label 20 40 "中文 # in" in scene
 text#label created in g#scene
+svg> tree
+svg (400x200)
+└── g#scene
+    ├── rect#start x=10 y=20 width=100 height=50 fill=#eee
+    └── text#label x=20 y=40 text="中文 # in"
+svg> show label
+text#label  parent=g#scene
+  x=20
+  y=40
+  text="中文 # in"
 svg>
 ```
 
-End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. The document is currently held in memory; save/read are not connected yet. The input loop supports CRLF and LF input and a final line without a trailing newline. Injected-executor presentation tests are retained alongside real-session init/create tests.
+End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. The document is currently held in memory; save/read are not connected yet. The input loop supports CRLF and LF input and a final line without a trailing newline. Injected-executor presentation tests are retained alongside real creation/query sessions.
 
 Double quotes enclose a complete token and preserve spaces, Chinese text and empty strings. Inside double quotes, `\"` becomes `"` and `\\` becomes `\`; other backslash sequences remain literal, including ordinary Windows path separators. A literal backslash immediately before a closing quote must be doubled. Unquoted backslashes remain literal. Partial or adjacent quoted-token concatenation is rejected. Single quotes, semicolons and `#` inside arguments are ordinary characters; there are no inline comments or shell command chains.
 
@@ -60,9 +70,11 @@ The parser preserves argument order and whether each argument was quoted. It for
 
 `ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
 
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `tree [id]` and `show <id>` are available in the real REPL; `help` follows in the next stage 3C module. Command-level undo is tested, but CLI undo/redo and history are only connected in stage 4A.
+`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `tree [id]`, `show <id>` and `help` are available in the real REPL. Command-level undo is tested, but CLI undo/redo and history are only connected in stage 4A.
 
 `tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
+
+`help` works before `init` and lists the currently registered commands, including the creation syntax for each CLI-capable shape. It accepts no arguments. The command dispatcher and shape factory supply this information from their existing registries; commands scheduled for later stages are added to help when implemented.
 
 Available creation syntax (append `in <containerId>` to any line to target an existing group):
 
@@ -77,6 +89,6 @@ create g <id>
 
 Every create requires an explicit id. Duplicate ids, missing/non-group parents and invalid numeric parameters are rejected without changing the document. Required text and id tokens may contain `in`; only an unquoted trailing `in` after required parameters starts a parent clause. Optional fill/stroke equal to the literal `in` must be quoted. Empty text is allowed. Unknown types including `box` are rejected. Successful init replaces the document; failed init preserves it.
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The 156 current tests cover domain invariants, factory registration, parsing, real init/create sessions, reversible CreateCommand and both source and compiled entry points, including error recovery and input failure during asynchronous execution.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The 189 current tests cover domain invariants, factory registration, parsing, real creation/query/help sessions, reversible CreateCommand and both source and compiled entry points, including error recovery and input failure during asynchronous execution.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.
