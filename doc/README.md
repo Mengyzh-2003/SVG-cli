@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求补充：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1；当前只有文档，以下模式均为计划落地方式，不代表已实现。
+架构基线：2026-10-26，v1.1；执行与质量要求补充：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。阶段 1 已建立工程与 REPL；下述 Command、Composite、Factory/Registry、EditorSession Facade 仍为后续阶段的落地设计，不代表已实现。
 
 ## 架构方案
 
@@ -72,6 +72,8 @@ doc/
 `tree`、`show`、`help` 和无参数 `canvas` 不改变历史。成功的 `init`、`read`、`save` 和带参数 `canvas` 清空旧栈并设置 IO 锁定标记；undo/redo 报需求指定错误。下一次成功编辑建立新的历史并解除锁定；失败编辑和失败 IO 保留原文档、路径与历史。
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
+
+阶段 1 的实际流程先收敛为 `main.ts → Repl → LineExecutor → CommandResult → TerminalOutput`。`LineExecutor` 是 CLI 的可注入原始行执行契约，便于在没有领域模型时测试输入循环；真实入口明确返回“业务命令尚不可用”，不模拟编辑成功。空行与整行注释暂由 Repl 过滤，阶段 2 移交 Parser，阶段 3 接入 EditorSession。该临时接线不增加命令名分派，也不作为完整 Facade 或 Strategy 模式计数。
 
 ### 4. PlantUML 组件图
 
@@ -230,16 +232,29 @@ end note
 
 修订结果：根开发方案 v1.1，新增持续状态与证据记录、使用者交付清单、仓库级门槛及 XML 输入边界。所有实现阶段仍为未开始，当前无生产代码测试或 CI 通过证据。
 
+### 2026-10-27：工程和 REPL 实现中的问题校验
+
+| 发现的问题 | 确认依据 | 纠正方式 |
+|---|---|---|
+| 初选测试框架版本带入已知漏洞，镜像源不能提供有效审计 | 安装 Vitest 3 后在 npm 官方源执行 audit，报告 3 项漏洞（1 moderate、2 critical）；本地镜像源的 audit 接口返回 404，不能作为无漏洞证据 | 更新至 Vitest 4.1.12，使用官方源生成锁文件并重新安装、审计，结果为 0 漏洞；不将镜像源审计不可用写成通过 |
+| 工程骨架允许没有测试仍成功，且类型检查只覆盖源码 | 检查生成的脚本发现 `--passWithNoTests`；tsconfig 只包含 src，测试中的类型错误可能不被 tsc 检出 | 加入真实输入循环和入口测试后移除空测试放行选项；增加 tsconfig.test.json，typecheck 同时检查 src 与 test |
+| 首次 CI 在 Windows 格式检查失败，Linux 成功 | `a65140f` 的 CI 40461811313 中 Windows 的 format:check 失败、后续检查跳过，Linux 成功；尚未获取原始失败日志，按平台换行差异假设修正并重跑 | 独立提交 `9ca1c8a`，通过 .gitattributes 固定文本 LF、Prettier 显式 endOfLine=lf；CI 40462330364 在 Windows/Linux 均通过，确认该修正消除了跨平台格式失败，不据此断言已读取失败日志 |
+| REPL 的关闭状态和提示符实现没有覆盖提前 EOF | 首次访问非公开的 reader.closed 导致 TS2551；改用无条件 prompt 后，预缓冲输入的 4 项测试报 `readline was closed`，证明 EOF 到达时仍可能有待处理行 | 用公开 close 事件记录关闭；真实终端仅在未关闭时调用 prompt，管道独立写提示符并继续消费队列。加入空 EOF、末行无换行、异步顺序测试；10 项测试及 Windows 真实终端 Ctrl+D 验收通过 |
+| 文档仍称“没有生产代码”和“REPL 未实现” | 对照新增 src/cli、应用结果契约和 2 个测试文件，根 README 与一致性自查已经过时 | 同步当前可用行为、暂不支持的业务命令、实际依赖和验收证据；保留以日期标记的旧审查结论作为历史，不把计划模式写成已落地 |
+
 ## 一致性自查
 
-当前处于架构设计阶段，生产源码尚未开始实现。
+阶段 1 实际源码抽样（2026-10-27）：
 
-1. **模块划分**：上述目录是实现基线，当前实际只有 `doc/` 和需求文档；源码开始后按小模块逐步建立。如目录职责发生变化，将在过程记录中写明原因，并同步修订本节。
-2. **依赖方向**：当前没有生产代码依赖，暂不存在违反项。每完成一个模块检查 import 方向，最终提交前再抽样复核两个按名字分派点。
+1. **模块划分与封装**：`src/cli/Repl.ts`、`TerminalOutput.ts` 各自单类同名文件，使用私有字段封装流、执行器和输出；`LineExecutor.ts` 是接口，`src/application/CommandResult.ts` 是无 IO 的结构化结果类型。`src/main.ts` 负责装配。领域、命令、图形与 IO 目录按后续阶段建立，没有空类占位。
+2. **依赖方向**：逐项检查上述文件 import：CLI 依赖 application 的结果类型和 CLI 内部接口；application 结果类型无 import；组合根依赖 CLI；测试依赖公开接口与 Node 流/进程。未发现反向依赖。当前没有按命令名或图形名分派，计划中的两处注册表仍未实现。
+3. **模式实际状态**：本阶段使用依赖注入隔离终端和行执行器，尚未实现业务 Command、Composite、Factory/Registry 和 Facade。后续首个 CreateCommand、图形树及 EditorSession 落地时补充实际证据，不提前计入模式使用。
 
 ## 质量保证手段
 
-实现阶段将采用以下证据确认完整性和质量：
+阶段 1 已执行：严格源码/测试类型检查、构建、Prettier 检查和 diff 空白检查；`test/cli/Repl.test.ts` 9 项及 `test/cli/Main.test.ts` 1 项共 10 项行为测试通过。真实 Windows PTY 运行编译产物，验证欢迎语、提示符、空行、注释、占位错误及 Ctrl+D 正常退出。配置修正提交的 Windows/Linux CI 已通过；REPL 提交的精确 SHA、CI 和阶段最终状态持续记录在根开发方案第 8 节。
+
+后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
 - 对解析器、id 唯一性、图形属性、父子关系、Composite 移动/缩放和失败状态不变性编写测试。
 - 对每个编辑命令验证“执行 → undo → redo”，覆盖 redo 清空、IO 后禁止 undo 和错误命令不入栈。
@@ -248,4 +263,4 @@ end note
 - 运行 TypeScript 类型检查、测试命令和典型 CLI 会话；每完成一个小模块先验证，再单独提交并推送。
 - 阶段 1 起按 Node.js 24 LTS / 约定 npm 主版本建立 Windows、Linux CI；每次 push/PR 运行 npm ci、format:check、typecheck、build 和 test，保留精确 SHA 的结果链接。CI 不能替代交互与浏览器验收。
 - 阶段 6 验证外部实体/网络解析禁用、DTD 拒绝，以及大小、深度、元素数量的解析期间限制；超限失败不改变文档、路径或历史。
-- 根开发方案第 8 节持续记录阶段状态与证据；最终按根 README 从干净检出验证使用者交接。目前这些均为计划，尚未运行。
+- 根开发方案第 8 节持续记录阶段状态与证据；最终按根 README 从干净检出验证使用者交接。

@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，当前只有需求和设计文档，所有实现阶段尚未开始；持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1 的工程配置已推送且双平台 CI 通过，REPL 与测试已实现、等待提交及 CI 验收；其余阶段未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -47,6 +47,8 @@
 | test/ | 按模块和典型会话组织测试及 SVG fixtures |
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
+
+阶段 1 的实际接线为 `main.ts → Repl → LineExecutor → CommandResult → TerminalOutput`。`LineExecutor` 是 CLI 持有的可注入原始行执行契约，不是命令分派器或完整 Facade；当前入口返回明确的阶段占位错误。空行/整行注释暂在 Repl 跳过，阶段 2 移入 Parser；阶段 3 再由真实 EditorSession 适配执行入口，不保留双重过滤或两套业务路径。
 
 ### 3.2 主流程与分派限制
 
@@ -236,7 +238,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 
 | 阶段 | 状态 | 验收证据 / 实现 SHA / 推送与 CI | 阻塞项 | 下一步 |
 |---|---|---|---|---|
-| 1 工程与 REPL | 进行中 | 环境：Windows，Node 24.15.0 / npm 11.12.1；工程配置小模块本地通过 npm ci、typecheck、build、format:check、cli 入口烟测、npm audit（0 漏洞）；提交与 CI 待核验 | 无 | 提交并推送配置小模块，核查 CI；再实现 REPL 与真实输入循环测试 |
+| 1 工程与 REPL | 进行中 | 配置提交 a65140f、换行修正 9ca1c8a 均已推送，后者 Windows/Linux CI 通过；REPL 本地 10 项测试、类型检查、构建、格式检查与真实终端验收通过，提交及 CI 待核实 | 无 | 单独提交并推送 REPL，核验双平台 CI 后记录完成 |
 | 2 词法 Parser | 未开始 | — | 无，依赖 1 | 按阶段 2 验收 |
 | 3A 领域与工厂 | 未开始 | — | 无，依赖 2 | 按阶段 3A 验收 |
 | 3B init/create Command | 未开始 | — | 无，依赖 3A | 按阶段 3B 验收 |
@@ -269,4 +271,13 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 避免 SHA 自引用：实现提交推送且验收通过后，再以小型文档提交记录该实现 SHA、CI 和完成状态；不把记录文件所在提交的 SHA 写进它自己。记录提交的 push/CI 在阶段报告中核实；若失败则如实补记，不能把实现已通过与记录已同步混为一谈。final tag 指向包括最终文档记录、并已通过质量门槛的最终提交。
 
-最近状态核对（2026-10-27）：阶段 1 已开始。本机为 Windows、Node 24.15.0、npm 11.12.1。工程配置与质量门槛小模块已在本地通过安装、类型检查、构建、格式检查、入口烟测和依赖审计；暂无测试文件，CI 尚待首次 push。下一步提交并推送该模块、核验 CI，再实现 REPL 与输入循环测试。
+### 阶段 1 验收记录（2026-10-27）
+
+- **状态**：进行中。工程配置已验收；REPL 已完成本地验收，等待独立提交、推送和双平台 CI。
+- **环境**：Windows；Node.js 24.15.0、npm 11.12.1。锁文件使用 npm 官方源；`npm ci --registry=https://registry.npmjs.org` 成功，官方源依赖审计 0 漏洞。
+- **工程模块**：`a65140fc12c470a3bce460510649dde50ac67554` 建立工程、质量脚本和 CI，已推送至 origin/main。首次 [CI 40461811313](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40461811313) 的 Linux 成功，Windows 格式检查失败；未将首次失败记作验收通过。
+- **独立修正**：`9ca1c8a3c83b0f64b3d41cc0135efad1878d8eb7` 统一检出换行与 Prettier 换行规则，已推送；[CI 40462330364](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40462330364) 的 Windows/Linux 均 completed/success。
+- **REPL 本地证据**：`npm run typecheck` 检查源码和测试；`npm run build`、`npm run format:check`、`git diff --check` 通过。`npm test`：2 个测试文件、10 项通过，覆盖真实输入循环、输出、异常后继续、空输入 EOF、CRLF、末行无换行、原始文本保留、异步执行顺序、输入流错误及真实入口子进程。
+- **手工终端验收**：在 Windows PTY 执行 `node dist/main.js`，看到欢迎语与 `svg>`；依次输入空行、`# terminal check`、`init`，前两项继续提示，后一项输出单行阶段占位错误；在空提示符 Ctrl+D 后退出码为 0。
+- **架构落地**：已建立 Repl、TerminalOutput、LineExecutor 和 CommandResult。CLI 使用依赖注入；本阶段未声称实现 Command、Composite、Factory/Registry 或 EditorSession Facade，也未接入领域状态。
+- **阻塞项**：无。下一步推送 REPL 小模块并核查其精确 SHA 的 Windows/Linux CI；阶段 2 尚未开始。
