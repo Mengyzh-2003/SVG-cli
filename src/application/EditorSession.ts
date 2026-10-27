@@ -3,13 +3,18 @@ import type { CommandRequest } from './CommandRequest.js';
 import type { CommandResult } from './CommandResult.js';
 import { CommandDispatcher } from './CommandDispatcher.js';
 import { SvgDocument } from '../domain/document/SvgDocument.js';
+import { ShapeFactory } from '../shapes/ShapeFactory.js';
+import { CreateCommand } from '../commands/CreateCommand.js';
 
 export class EditorSession implements CommandExecutor {
   readonly #dispatcher = new CommandDispatcher();
+  readonly #factory: ShapeFactory;
   #document: SvgDocument | null = null;
 
-  constructor() {
+  constructor(factory = new ShapeFactory()) {
+    this.#factory = factory;
     this.#dispatcher.register('init', (request) => this.#initialize(request));
+    this.#dispatcher.register('create', (request) => this.#create(request));
   }
 
   get document(): SvgDocument | null {
@@ -17,7 +22,40 @@ export class EditorSession implements CommandExecutor {
   }
 
   execute(request: CommandRequest): CommandResult {
-    return this.#dispatcher.dispatch(request);
+    try {
+      return this.#dispatcher.dispatch(request);
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'unexpected error',
+      };
+    }
+  }
+
+  #create(request: CommandRequest): CommandResult {
+    if (this.#document === null) {
+      return {
+        status: 'error',
+        message: "no document. use 'init' or 'read' first",
+      };
+    }
+    const type = request.args[0]?.value;
+    if (type === undefined || type.length === 0) {
+      return { status: 'error', message: 'shape type is required' };
+    }
+    const { shape, parentId } = this.#factory.createFromCli(
+      type,
+      request.args.slice(1),
+    );
+    const command = new CreateCommand(this.#document, shape, parentId);
+    command.execute();
+    const parent = this.#document.parentOf(shape.id);
+    return {
+      status: 'success',
+      lines: [
+        `${shape.type}#${shape.id} created${parent === null ? '' : ` in ${parent.type}#${parent.id}`}`,
+      ],
+    };
   }
 
   #initialize(request: CommandRequest): CommandResult {

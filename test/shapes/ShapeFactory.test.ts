@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ContainerShape } from '../../src/domain/shapes/ContainerShape.js';
 import { Shape } from '../../src/domain/shapes/Shape.js';
 import { CircleShape } from '../../src/shapes/CircleShape.js';
@@ -230,4 +230,41 @@ describe('ShapeFactory', () => {
     expect(new RectShape('zero', 0, 0, 0, 0).width).toBe(0);
     expect(new CircleShape('point', 0, 0, 0).r).toBe(0);
   });
+
+  it('reports an explicit error for a registered type without CLI syntax', () => {
+    const factory = new ShapeFactory();
+    class Marker extends Shape {
+      readonly type = 'marker';
+      constructor(id: string) {
+        super(id);
+      }
+    }
+    factory.register('marker', (spec) => new Marker(spec.id));
+    expect(() =>
+      factory.createFromCli('marker', [{ value: 'm', quoted: false }]),
+    ).toThrow('CLI creation not supported for shape type: marker');
+    expect(
+      factory.create({ type: 'marker', id: 'm', properties: {} }),
+    ).toBeInstanceOf(Marker);
+  });
+
+  it.each(['id', 'type'])(
+    'rejects a CLI provider returning mismatched %s',
+    (field) => {
+      const factory = new ShapeFactory();
+      const create = vi.fn(() => new GroupShape('wrong'));
+      factory.register('marker', create, (id) => ({
+        specification: {
+          type: field === 'type' ? 'g' : 'marker',
+          id: field === 'id' ? 'wrong' : id,
+          properties: {},
+        },
+        parentId: null,
+      }));
+      expect(() =>
+        factory.createFromCli('marker', [{ value: 'm', quoted: false }]),
+      ).toThrow('shape parser returned mismatched identity: marker');
+      expect(create).not.toHaveBeenCalled();
+    },
+  );
 });

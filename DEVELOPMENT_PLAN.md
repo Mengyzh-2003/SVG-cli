@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1、阶段 2 和阶段 3A 已完成，下一步为阶段 3B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1、阶段 2 和阶段 3A 已完成，阶段 3B 正在验收。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；EditorSession 实现执行契约，目前已连接 init，create 在 3B.2 接入。空行/整行注释全部交由 Parser；词法错误不调用执行器。历史与 IO 后续接入 Facade。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；EditorSession 实现执行契约，已连接 init 与 create。create 由 ShapeFactory 的同一注册项解析参数，再经 CreateCommand 执行领域插入。空行/整行注释全部交由 Parser；词法错误不调用执行器。历史与 IO 后续接入 Facade。
 
 ### 3.2 主流程与分派限制
 
@@ -96,6 +96,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 3A 内部再分三次验收和推送：3A.1 图形抽象与公共属性；3A.2 六种具体图形、结构化创建数据与工厂注册；3A.3 文档树与索引。工厂本步骤接收已转换为数值的结构化参数，CLI 参数转换在 3B 接入同一注册表，SVG 参数转换在 6A 接入，不另建类型分发表。图形属性当前只读访问不代表模型永久不可变；受控几何修改和状态恢复随 4B/4C 实现，不能由命令直接写字段。
 
 3B：建立 EditorSession、CommandDispatcher、CommandResult 和 Command 契约，提前实现 init。create 从第一版起封装为 CreateCommand；工厂创建未挂接候选节点，全部校验通过后原子加入文档。
+
+3B 内部提交点：3B.1 应用契约、分派器、EditorSession 与真实入口 init；3B.2 工厂注册项 CLI schema、六种 create/in、CreateCommand 及会话回归。3B.1 推送并验收 CI 后再进入 3B.2。CreateCommand 自身验证执行/撤销/重执行；CLI undo/redo 与完整历史仍随 4A 接入。
 
 3C：接入 tree、show、help，完成 init → create → tree/show 的真实 CLI 回放。帮助语法来自命令注册信息；节点显示由多态描述或统一属性视图产生，不按 tag 分支。
 
@@ -243,8 +245,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 |---|---|---|---|---|
 | 1 工程与 REPL | 完成 | 原验收见下文；回归补强 acb500b 已推送，[CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386) Windows/Linux 均通过，12 项测试通过 | 无 | 已进入阶段 2 |
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
-| 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 等待阶段 3B 任务 |
-| 3B init/create Command | 进行中 | 3B.1 应用入口与 init：108 项本地测试通过，待提交及 CI | 无 | 3B.1 推送验收后接入 create |
+| 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
+| 3B init/create Command | 待验收 | 3B.1 `3659408` + 文档 `f16c816` 已推送，双平台 [CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 本地 156 项测试通过，待推送与 CI | 无 | 验收 3B.2 后记录完成 |
 | 3C tree/show/help | 未开始 | — | 无，依赖 3B | 按阶段 3C 验收 |
 | 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |

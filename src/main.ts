@@ -1,10 +1,11 @@
 import { stdin, stdout } from 'node:process';
 import { EditorSession } from './application/EditorSession.js';
+import { ShapeFactory } from './shapes/ShapeFactory.js';
 import { CommandParser } from './cli/parser/CommandParser.js';
 import { Repl } from './cli/Repl.js';
 import { TerminalOutput } from './cli/TerminalOutput.js';
 
-const executor = new EditorSession();
+const executor = new EditorSession(new ShapeFactory());
 
 const repl = new Repl(
   stdin,
