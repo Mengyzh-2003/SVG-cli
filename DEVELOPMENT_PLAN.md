@@ -441,3 +441,5 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **6A.0 内容**：Shape 封装只读附加 SVG 属性，TextShape 通过 textContent/svgAttributes 区分子文本和属性；SvgDocument 保存独立 viewBox 与根元数据并校验坐标系；ShapeFactory 原注册项新增 SVG 参数转换，不增加标签分派表。几何省略按 SVG 初始值 0；本阶段仅支持无单位有限 SVG 数字，不接受 px/%、十六进制等。
 - **后续目标**：6A.1 使用 saxes 的严格 XML 事件接口，在解析期间限制深度/数量，禁止 DTD/自定义实体与外部资源解析；缺 id 预收集后分配并只在完整成功时返回 warning。6B 才接入文件、路径和 read/save；6C 才接入 canvas 与完整文档历史。
 - **6A.0 本地验收**：31 文件 577 项通过（原 554 项全部保留，新增 23 项）；typecheck、pretest 构建、format:check、git diff --check 通过。无阻塞；XML 依赖与 Reader 随下一小模块单独提交。
+- **6A.0 远程核实**：`ba55fdcfef805a77cc7e560a8598e10b25b13319` 已推送并经 ls-remote 核实；[CI 40649616920](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40649616920) 对应精确 SHA，Windows/Linux completed/success 后才开始 Reader。
+- **6A.1 本地验收**：32 文件 629 项通过，新增 Reader 52 项；typecheck、pretest 构建、format:check、diff 检查通过。采用 saxes 6.0.0（锁文件固定确切版本），核对源码只依赖 xmlchars、没有资源解析器；不安装自定义实体。测试覆盖六种类型、命名空间、CDATA/数字实体、空/中文/空白文本、样式与附加属性、临时文档、后部显式 id、重复 id、未知元素、畸形 XML 和 DTD。真实本地 HTTP 服务确认外部 DTD/实体无请求，fs 读取 spy 确认无文件读取；边界包含恰好/超过 5 MiB、128 层、50000 元素，超深/超量后的畸形尾部不会先触发普通 XML 错误。根 id 同时在后续插入/分组时保留占用，避免编辑后生成重复 id。

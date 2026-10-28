@@ -456,3 +456,10 @@ end note
 - **发现**：对照既有方案 5.2 和生成的模型，Shape 只有可编辑几何/样式，SvgDocument.viewBox 总由尺寸推导；若直接接入 Reader，外部 transform/字体属性及独立 viewBox 会在读取时丢失。
 - **确认**：核对 Shape.attributes、TextShape.geometry 和 SvgDocument getter，文本还以内部 text 字段暴露；直接遍历 attributes 序列化会误把子文本写成属性。用附加 text 属性与真实文本不同的用例确认二者必须独立。
 - **纠正**：封装只读附加属性和独立 viewBox，保留严格编辑白名单；以 Shape.svgAttributes/textContent 与 TextShape 多态覆写提供序列化视图。SVG 创建转换附在既有 ShapeFactory 注册项，沿用 Factory/Registry，不在 Reader 新增按标签分派。用元数据在编辑后保持、原始 viewBox 及六种类型测试验证。
+
+### 阶段 6A：根 id 与解析边界（2026-10-28）
+
+- **发现**：生成的 Reader 预留根 id 分配自动 id，但领域索引仍仅包含图形；读取后编辑可以复用根 id，保存将产生重复 id。仅在读入时去重不足以维持文档不变量。
+- **确认**：用根 id=rect1、后部显式 rect2 的 fixture 验证自动补全跳过二者，再尝试 insert/prepareGroup 复用 rect1；发现编辑入口也需检查保留根元数据。
+- **纠正**：在领域插入与分组准备中拒绝根 id 冲突，保留根不作为可编辑图形的既有语义。补读入后两种编辑入口的冲突回归。
+- **解析实现选择**：核对建树式解析器与事件式 saxes 的接口后，采用后者的 opentagstart 事件，在创建超限节点前检查预算；不使用全文正则扫描 DTD，避免误拒绝注释/CDATA 中的声明样文本。DOCTYPE 事件明确拒绝声明，未知实体交严格解析器拒绝；源码核对与 HTTP/fs 测试确认不会解析外部资源。错误只返回受控类别和单行消息，warning 仅成功后返回。

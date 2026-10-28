@@ -137,7 +137,7 @@ export class SvgDocument {
     if (!(group instanceof ContainerShape)) {
       throw new Error(`not a container: ${group.id}`);
     }
-    if (this.#nodes.has(group.id)) {
+    if (this.#nodes.has(group.id) || this.#extraAttributes.id === group.id) {
       throw new Error(`id already exists: ${group.id}`);
     }
     if (SvgDocument.#owners.has(group)) {
@@ -296,7 +296,11 @@ export class SvgDocument {
     while (pending.length > 0) {
       const candidate = pending.pop()!;
       const { shape, children } = candidate.tree;
-      if (this.#nodes.has(shape.id) || candidates.has(shape.id)) {
+      if (
+        this.#nodes.has(shape.id) ||
+        candidates.has(shape.id) ||
+        this.#extraAttributes.id === shape.id
+      ) {
         throw new Error(`id already exists: ${shape.id}`);
       }
       if (SvgDocument.#owners.has(shape)) {
