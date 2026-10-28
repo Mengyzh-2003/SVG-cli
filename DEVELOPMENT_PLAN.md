@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C 已完成，5A 正在开发。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A 已完成，下一阶段为 5B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。delete/move/scale 同样由应用处理器校验参数和生成摘要，经历史管理器执行各自命令；领域层负责子树摘除/恢复及几何准备。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。delete/move/scale/set/group/addto 同样由应用处理器校验参数和生成摘要，经历史管理器执行各自命令；领域层负责子树摘除/恢复、几何/属性准备及原子拓扑变更。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
 
 ### 3.2 主流程与分派限制
 
@@ -61,7 +61,7 @@ Parser 返回命令名与保留 quoted 信息的词元；结构化请求不要�
 ### 3.3 设计模式
 
 - **Command**：从首个 CreateCommand 开始使用；一条编辑一个 undo 单元。execute/undo/redo 使用同一命令对象，redo 重用已保存的执行结果，不重新解析输入。
-- **Composite**：Shape 抽象统一叶子与 GroupShape 的几何准备契约；SvgDocument 作为唯一拓扑持有者，迭代汇总子树各节点的多态本地变更，完整校验后统一应用，不在 GroupShape 重复保存 children。删除和重组同样由文档维护子树及 id 索引。g 的公共属性设置保留 SVG 继承语义（set 随 4C 接入）。
+- **Composite**：Shape 抽象统一叶子与 GroupShape 的几何准备契约；SvgDocument 作为唯一拓扑持有者，迭代汇总子树各节点的多态本地变更，完整校验后统一应用，不在 GroupShape 重复保存 children。删除和重组同样由文档维护子树及 id 索引。4C 已接入 g 的公共属性设置，保留 SVG 继承语义；5A 的 group/addto 通过同一领域树操作叶子与整棵子树。
 - **Factory/Registry**：ShapeFactory 集中注册六种具体图形，CLI 创建与 SVG 读入复用注册项；未来可新增提供者，本阶段不实现 box。
 - **Facade**：EditorSession 提供稳定执行入口，编排处理器、历史和 IO；不承担具体图形运算或 XML 解析。
 - **Template Method（4B 局部复用）**：GeometryCommand 固定执行/恢复及快照保存顺序，MoveCommand 与 ScaleCommand 只覆写准备钩子；两种具体运算复用同一生命周期，不新增分派表。
@@ -270,7 +270,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
-| 5A group/addto | 进行中 | 5A.1 已推送且双平台 CI 通过；5A.2 本地 26 文件 456 项通过，远程待验收 | 无 | 推送 5A.2 并核实 CI 后收尾 |
+| 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
@@ -396,10 +396,13 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **文档与实际问题**：根 README 补齐 set 白名单、运行示例与恢复语义；架构同步属性准备契约和已实现命令。现有 readonly 样式/文本缺少受控入口、不能据 attributes 是否存在决定白名单的问题及修正写入过程记录；收尾发现模式正文/图中实现状态落后于源码，也已核对并更新。常规进度仅记在本节。
 - **模式与范围**：Command 继续作为单次编辑历史单元，Composite 保持统一 Shape 接口与文档唯一拓扑，Factory/Registry 和 EditorSession Facade 延用现有职责；未新增模式或依赖反转。无阻塞。下一阶段 5A 实现 GroupCommand/AddToCommand，验证跨父归属/顺序、环拒绝、整条命令原子性和精确 undo/redo；继续按模块推送。本次未开始 5A、未实现 SVG IO 或 box，未创建 final tag。
 
-### 阶段 5A 模块进度（2026-10-28）
+### 阶段 5A 验收记录（2026-10-28）
 
 - **5A.1 group 本地验收**：24 文件 420 项通过；typecheck、pretest 构建、format:check、git diff --check 通过。新增 TreeChange 与 SvgDocument.prepareGroup、GroupCommand 和应用层注册；按变更前文档顺序收编，同父插入最早位置，跨父放根末尾。命令保存受影响拓扑，校验完成后统一写入，支持精确恢复、冲突后重试及原实例保持。
 - **专项证据**：同父根级/嵌套、非连续选择、逆序参数、跨父混合深度、单节点、重复/缺失/祖先选择、占用 id/实例、准备不写入、冻结查询、撤销/重做前结构变化、2000 层树；会话验证错误/查询保留 redo、新编辑清空 redo、init 锁定和 group/move/scale/set/delete 混合历史；源码与编译入口各回放一次。Windows PTY 验证中文、跨父组合、需求冲突错误、一次 undo 恢复原父及 redo，Ctrl+D 正常退出。
 - **5A.1 远程核实**：`f81defa1d99982bc4d7045362358e0384536f2b4` 已独立推送，ls-remote 与本地 HEAD 一致；[CI 40633888614](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40633888614) Windows/Linux completed/success 后开始 addto。
-- **5A.2 addto 本地验收**：26 文件 456 项通过，typecheck、pretest 构建、format:check、diff 检查通过。AddToCommand 复用 TreeChange，支持叶子/整棵子树跨父收编、移入祖先、同父移至末尾、已在末尾仍计入历史；错误保留树、索引、属性与历史。新增 36 项回归覆盖错误边界、混合历史、重试、深树和源码/编译入口。远程 SHA/CI 待本模块推送后核实，阶段暂不标完成。
+- **5A.2 addto 本地验收**：26 文件 456 项通过，typecheck、pretest 构建、format:check、diff 检查通过。AddToCommand 复用 TreeChange，支持叶子/整棵子树跨父收编、移入祖先、同父移至末尾、已在末尾仍计入历史；错误保留树、索引、属性与历史。新增 36 项回归覆盖错误边界、混合历史、重试、深树和源码/编译入口。
 - **5A.2 手工证据**：Windows PTY 运行编译入口，中文 text 随 branch 整棵收编；一次 undo 恢复 scene，成环错误后 redo 仍成功；同父 addto 把 text 移至 circle 之后，undo 恢复 text/circle 原序。Ctrl+D 退出码 0。间接环回归的失败复现与修正已记入最终文档过程记录。
+- **5A.2 远程核实**：`405ffae0c4b931ab6cddeab9cf6f5d989320a29e` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40634425208](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40634425208) 对应该 SHA，Windows/Linux completed/success。
+- **阶段结论与模式**：完成，无阻塞。保留原 392 项，group 新增 28、addto 新增 36，共 456 项。Command 保存同一 TreeChange 作为一次历史单元；Composite 沿用文档唯一关系来源，Factory/Registry 创建候选 g，Facade 编排参数、反馈与历史。未添加新的名字分派或多余模式。架构与使用说明同步已实现范围，过程记录仅记实际发现、确认及纠正。
+- **记录提交与下一步**：本验收记录独立作文档提交，其自身 SHA、push/CI 在阶段报告核实，避免自引用。下一阶段 5B 实现 UngroupCommand：拒绝顶层容器解散；嵌套组的子节点按原顺序提升到原父中组所在的位置；一次 undo 恢复原组实例、父子归属和同级顺序，redo 重用保存结果；覆盖失败不改状态/历史、空组与混合历史。本次不开始 5B、5C 或 SVG IO，不实现 box，不创建 final tag。
