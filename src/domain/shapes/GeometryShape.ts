@@ -44,6 +44,15 @@ export abstract class GeometryShape extends Shape {
     return this.#prepare(next);
   }
 
+  override prepareScale(factor: number): GeometryChange {
+    Shape.requireScaleFactor(factor);
+    const next: Record<string, number> = {};
+    for (const [name, value] of Object.entries(this.#values)) {
+      next[name] = value * factor;
+    }
+    return this.#prepare(next);
+  }
+
   #prepare(values: Readonly<Record<string, number>>): GeometryChange {
     const before = this.#values;
     const after = this.#validate(values);

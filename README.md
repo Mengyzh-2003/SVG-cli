@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4A connects `undo`/`redo` to creation history. Other editing commands and file operations follow in later stages; `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stages 4A–4B connect `undo`/`redo` to creation, subtree deletion, movement and scaling. Attribute editing, grouping commands and file operations follow in later stages; `box` is outside the current project scope.
 
 ## Requirements
 
@@ -88,6 +88,23 @@ This history example continues an initialized session such as the one above. Fut
 Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
 
 `move <id> <dx> <dy>` translates local coordinates, including both endpoints of a line and every descendant of a group. Sizes, text and styles remain unchanged. All candidate coordinates are validated before any change, so overflow in a later descendant leaves the entire group unchanged. Undo/redo restores captured values exactly. A valid zero displacement or move of an empty group is still one edit and clears redo. Leaf summaries show their local anchor (the first endpoint for a line); group summaries show displacement.
+
+`scale <id> <factor>` multiplies all local coordinates and sizes by a positive finite factor, across the entire selected subtree. Text scales only its x/y position; its content is unchanged. Fill, stroke and stroke width remain unchanged for every shape. Nonpositive factors, nonfinite input and geometric overflow are rejected without changing any node or history. Finite underflow to zero follows JavaScript numeric semantics; undo still restores the exact original values. A factor of 1 or scaling an empty group counts as an edit. Scaling reports `type#id scaled by factor`; undo reports `type#id geometry restored`.
+
+For example, in an initialized session:
+
+```text
+create g node
+create rect box 10 20 100 50 red in node
+create text label 20 40 "中文" in node
+move node 0 100
+scale node 0.5
+undo
+redo
+delete node
+undo
+tree
+```
 
 `tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
 

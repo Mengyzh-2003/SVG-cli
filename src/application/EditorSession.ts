@@ -7,6 +7,7 @@ import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
 import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { MoveCommand } from '../commands/MoveCommand.js';
+import { ScaleCommand } from '../commands/ScaleCommand.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
 
@@ -63,6 +64,11 @@ export class EditorSession implements CommandExecutor {
       'move',
       (request) => this.#move(request),
       () => ['move <id> <dx> <dy>'],
+    );
+    this.#dispatcher.register(
+      'scale',
+      (request) => this.#scale(request),
+      () => ['scale <id> <factor>'],
     );
   }
 
@@ -219,6 +225,26 @@ export class EditorSession implements CommandExecutor {
       throw new Error(`${name} must be a finite number`);
     }
     return value;
+  }
+
+  #scale(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 2 || request.args[0]!.value === '') {
+      throw new Error('usage: scale <id> <factor>');
+    }
+    const factor = this.#parseFinite(request.args[1]!.value, 'scale factor');
+    const shape = document.require(request.args[0]!.value);
+    const summary = `${shape.type}#${shape.id}`;
+    return {
+      status: 'success',
+      lines: this.#history.execute(
+        new ScaleCommand(document, shape.id, factor),
+        {
+          undoLines: [`${summary} geometry restored`],
+          redoLines: [`${summary} scaled by ${factor}`],
+        },
+      ),
+    };
   }
 
   #initialize(request: CommandRequest): CommandResult {

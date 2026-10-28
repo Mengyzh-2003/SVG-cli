@@ -1,5 +1,5 @@
 import { ContainerShape } from '../shapes/ContainerShape.js';
-import type { Shape } from '../shapes/Shape.js';
+import { Shape } from '../shapes/Shape.js';
 import type { ShapeSubtree } from './ShapeSubtree.js';
 import { GeometryChange } from '../shapes/GeometryChange.js';
 
@@ -97,6 +97,13 @@ export class SvgDocument {
     if (!Number.isFinite(dy)) throw new Error('dy must be a finite number');
     return GeometryChange.combine(
       this.walk(id).map((shape) => shape.prepareMove(dx, dy)),
+    );
+  }
+
+  prepareScale(id: string, factor: number): GeometryChange {
+    Shape.requireScaleFactor(factor);
+    return GeometryChange.combine(
+      this.walk(id).map((shape) => shape.prepareScale(factor)),
     );
   }
 

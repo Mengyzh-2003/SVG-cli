@@ -13,4 +13,9 @@ export abstract class ContainerShape extends Shape {
     // Local group geometry is empty. SvgDocument coordinates its descendants.
     return GeometryChange.combine([]);
   }
+
+  override prepareScale(factor: number): GeometryChange {
+    Shape.requireScaleFactor(factor);
+    return GeometryChange.combine([]);
+  }
 }

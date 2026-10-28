@@ -183,6 +183,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
 | delete/move 反馈 | delete 撤销显示 restored into svg 或 类型#父id；move 叶子显示本地锚点 moved to / moved back to（line 使用首端点），容器显示 moved by / moved back by。反馈只描述结果，撤销实际恢复保存值，不使用反馈中的逆增量计算 |
+| scale 反馈与下溢 | 执行/重做显示 类型#id scaled by factor，撤销显示 类型#id geometry restored；有限结果允许 IEEE 754 下溢为零，undo 恢复原值，溢出为非有限值则整体拒绝 |
 | 默认保存路径 | read 成功记录读入路径；save 显式路径成功后也作为后续默认路径；init 清空路径；init 后首次无参 save 报 error: no file path. use 'save <file.svg>' first |
 | 数值域 | 接受有限浮点与负坐标；尺寸、半径、stroke-width 不得为负，画布宽高及 scale factor 必须为正；参数过多、缺失和非数值一律拒绝 |
 | init 可选尺寸 | init 默认 800×600；只给 w 时 h 取 600；canvas 修改必须同时给 w/h，无参只查询 |
@@ -259,7 +260,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 等待阶段 4B 任务 |
-| 4B delete/move/scale | 进行中 | 4B.1 `997de0f` 已推送且双平台 CI 通过；4B.2 move 本地验收中 | 无 | 核实 move 推送/CI 后进入 scale |
+| 4B delete/move/scale | 进行中 | 4B.1 `997de0f`、4B.2 `6bfa850` 已分别推送且双平台 CI 通过；4B.3 scale 本地验收中 | 无 | 核实 scale 推送/CI，完成阶段记录 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
@@ -367,3 +368,5 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 - **4B.1 delete**：`997de0fc5c133d4ce8a07c99b5ddb9f485836cfb` 已独立推送并核实远程 SHA；[CI 40625108180](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40625108180) Windows/Linux completed/success 后才开始移动模块。16 文件 246 项通过，typecheck、pretest 构建、format:check、diff 检查通过。新增子树恢复、身份/属性/父关系/顺序、冲突后重试、混合历史、删除 id 复用、失败保留双栈及源码/编译入口删除会话。
 - **4B.2 move 本地验收**：18 文件 276 项全部通过；typecheck、pretest 构建、format:check、diff 检查通过。GeometryShape 封装数值，GeometryChange 捕获前后值，SvgDocument 迭代准备子树；MoveCommand 复用 GeometryCommand 快照生命周期，EditorSession 生成锚点或增量摘要。覆盖六种类型、双端点、精确浮点恢复、文本/样式保持、末端溢出失败后重试、未支持扩展拒绝、2000 层树和无变化编辑清空 redo；真实两种入口验证需求中的圆与容器移动反馈。推送/CI 尚待本模块提交后核实。
+- **4B.2 远程核实**：`6bfa85025df15f8e22ef29f3b96a2a45fb697281` 独立推送并以 ls-remote 核实；[CI 40625689104](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40625689104) Windows/Linux completed/success 后才开始缩放。Windows PTY 编译入口验证中文文本随组移动、0.1/0.2 撤销精确恢复、子树删除后查询报错、undo/redo 和 EOF 退出 0。
+- **4B.3 scale 本地验收**：20 文件 314 项通过，typecheck、pretest 构建、format:check、diff 检查通过。ScaleCommand 复用既有 GeometryCommand/GeometryChange，领域统一验证正有限 factor，所有数值几何同乘，文字/样式/描边宽度不变。覆盖六种类型、2000 层树、末端坐标/尺寸/端点溢出原子性、有限下溢、十轮精确恢复、数值型扩展以及 create/move/scale/delete 混合历史；源码/编译入口各回放组缩放、失败保留 redo、后代溢出不改已有节点和 init 重锁。推送/CI 待本模块提交后核实。

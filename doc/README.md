@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；历史管理与会话实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、CreateCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口。Composite 几何操作及 SVG IO 仍按后续阶段实现，不代表已经验收。
+架构基线：2026-10-26，v1.1；基础编辑实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/ScaleCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口；Composite 几何移动/缩放已接入，set、重组及 SVG IO 仍按后续阶段实现。
 
 ## 架构方案
 
@@ -149,7 +149,7 @@ end note
 
 `Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。4B 的统一几何操作由 `SvgDocument` 按唯一拓扑迭代汇总各 Shape 的本地准备结果：叶子经 `GeometryShape` 校验坐标/尺寸，容器本地为空操作，子孙各处理一次。整个子树准备成功后才应用 `GeometryChange`，避免递归调用栈及中途失败造成部分修改。GroupShape 不另存 children；命令无需区分容器与叶子。set 白名单随 4C 接入；删除和重组通过统一子树接口维护索引与归属。XML 生成仍位于 IO 层。
 
-`GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 统一保存快照与执行状态，MoveCommand 只提供移动准备，redo 重用保存结果。数值视图冻结，文字和样式不参与移动。扩展 Shape 未实现移动准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
+`GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 统一保存快照与执行状态，MoveCommand/ScaleCommand 只提供各自的准备，redo 重用保存结果。数值视图冻结，文字和样式不参与运算；scale 乘全部坐标和尺寸，文本仅有 x/y 数值，不扩大字体，stroke-width 不变。有限下溢为零可接受，非有限结果拒绝；极小倍数的撤销同样恢复原值，不依赖除法。扩展 Shape 未实现相应准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
 
 `group`、`addto` 和 `ungroup` 改变树关系；move/scale 通过多态作用于子树。g 的 set 修改容器自身样式，保留 SVG 继承语义，不覆盖后代显式样式。普通 g 只有在嵌套时允许 ungroup，顶层 g 必须拒绝；未来插件的内部复合图形可通过容器能力契约拒绝解散。
 

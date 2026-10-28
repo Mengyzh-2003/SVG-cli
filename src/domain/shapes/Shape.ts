@@ -59,6 +59,16 @@ export abstract class Shape {
     throw new Error(`move is not supported for shape: ${this.id}`);
   }
 
+  prepareScale(_factor: number): GeometryChange {
+    throw new Error(`scale is not supported for shape: ${this.id}`);
+  }
+
+  static requireScaleFactor(factor: number): number {
+    Shape.requireFiniteGeometry(factor, 'scale factor');
+    if (factor <= 0) throw new Error('scale factor must be positive');
+    return factor;
+  }
+
   /** Detached, read-only local geometry; extensions override this view. */
   get geometry(): Readonly<Record<string, number | string>> {
     return Object.freeze({});

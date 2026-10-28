@@ -6,6 +6,63 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('scales complete groups and recovers from invalid factors and late overflow', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create line edge -1 2 3 4 black in scene',
+        'create text label 10 20 "中文" in scene',
+        'scale scene 0.5',
+        'undo',
+        'scale scene 0',
+        'redo',
+        'show edge',
+        'show label',
+        'create circle huge 1e308 0 1 in scene',
+        'scale scene 2',
+        'show edge',
+        'undo',
+        'undo',
+        'redo',
+        'delete scene',
+        'undo',
+        'tree',
+        'init',
+        'undo',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'g#scene scaled by 0.5\nsvg> g#scene geometry restored',
+    );
+    expect(result.stdout).toContain(
+      'error: scale factor must be positive\nsvg> g#scene scaled by 0.5',
+    );
+    expect(result.stdout).toContain(
+      'text#label  parent=g#scene\n  x=5\n  y=10\n  text="中文"',
+    );
+    const line =
+      'line#edge  parent=g#scene\n  x1=-0.5\n  y1=1\n  x2=1.5\n  y2=2\n  stroke=black';
+    expect(result.stdout.split(line)).toHaveLength(3);
+    expect(result.stdout).toContain(
+      `error: cx must be a finite number\nsvg> ${line}`,
+    );
+    expect(result.stdout).toContain(
+      'g#scene deleted\nsvg> g#scene restored into svg\nsvg> svg (800x600)',
+    );
+    expect(result.stdout).toContain(
+      'line#edge x1=-0.5 y1=1 x2=1.5 y2=2 stroke=black',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(3);
+    expect(result.stdout).toContain('error: undo not allowed after io command');
+  });
+
   it('moves leaves and groups, rejecting overflow without losing redo', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -134,7 +191,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
