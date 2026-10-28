@@ -6,11 +6,13 @@ import { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
+import { HistoryManager } from './HistoryManager.js';
 
 export class EditorSession implements CommandExecutor {
   readonly #dispatcher = new CommandDispatcher();
   readonly #factory: ShapeFactory;
   readonly #formatter = new DocumentFormatter();
+  readonly #history = new HistoryManager();
   #document: SvgDocument | null = null;
 
   constructor(factory = new ShapeFactory()) {
@@ -39,6 +41,16 @@ export class EditorSession implements CommandExecutor {
       'help',
       (request) => this.#help(request),
       () => ['help'],
+    );
+    this.#dispatcher.register(
+      'undo',
+      (request) => this.#undo(request),
+      () => ['undo'],
+    );
+    this.#dispatcher.register(
+      'redo',
+      (request) => this.#redo(request),
+      () => ['redo'],
     );
   }
 
@@ -73,6 +85,18 @@ export class EditorSession implements CommandExecutor {
         ...this.#dispatcher.helpLines(),
       ],
     };
+  }
+
+  #undo(request: CommandRequest): CommandResult {
+    this.#requireDocument();
+    if (request.args.length !== 0) throw new Error('usage: undo');
+    return { status: 'success', lines: this.#history.undo() };
+  }
+
+  #redo(request: CommandRequest): CommandResult {
+    this.#requireDocument();
+    if (request.args.length !== 0) throw new Error('usage: redo');
+    return { status: 'success', lines: this.#history.redo() };
   }
 
   #tree(request: CommandRequest): CommandResult {
@@ -113,13 +137,18 @@ export class EditorSession implements CommandExecutor {
       request.args.slice(1),
     );
     const command = new CreateCommand(this.#document, shape, parentId);
-    command.execute();
-    const parent = this.#document.parentOf(shape.id);
+    // Validate the container before looking it up for application feedback.
+    this.#document.childrenOf(parentId);
+    const parent = parentId === null ? null : this.#document.require(parentId);
+    const summary = `${shape.type}#${shape.id}`;
     return {
       status: 'success',
-      lines: [
-        `${shape.type}#${shape.id} created${parent === null ? '' : ` in ${parent.type}#${parent.id}`}`,
-      ],
+      lines: this.#history.execute(command, {
+        undoLines: [`${summary} removed`],
+        redoLines: [
+          `${summary} created${parent === null ? '' : ` in ${parent.type}#${parent.id}`}`,
+        ],
+      }),
     };
   }
 
@@ -141,6 +170,7 @@ export class EditorSession implements CommandExecutor {
     try {
       const candidate = new SvgDocument(width, height);
       this.#document = candidate;
+      this.#history.resetAfterIo();
       return {
         status: 'success',
         lines: [`canvas ${width}x${height} created`],

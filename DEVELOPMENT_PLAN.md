@@ -1,12 +1,12 @@
 # SVG CLI 开发执行方案
 
-版本：v1.1（2026-10-27）
+版本：v1.1（进度更新至 2026-10-28）
 
 ## 1. 目标、依据与当前状态
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-27，阶段 1–2、3A–3C 已完成，下一阶段为 4A。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C 已完成，4A 正在接入历史与会话。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；EditorSession 实现执行契约，已连接 init 与 create。create 由 ShapeFactory 的同一注册项解析参数，再经 CreateCommand 执行领域插入。空行/整行注释全部交由 Parser；词法错误不调用执行器。历史与 IO 后续接入 Facade。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
 
 ### 3.2 主流程与分派限制
 
@@ -179,6 +179,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | group 的新父节点与输入顺序 | 选择项同父时，新 g 放在最早被选节点的位置；跨父时新 g 挂根末尾。子节点按变更前文档深度优先遍历顺序排列，不以参数排列顺序重排；undo 精确恢复每个原位置 |
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
+| undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
 | 默认保存路径 | read 成功记录读入路径；save 显式路径成功后也作为后续默认路径；init 清空路径；init 后首次无参 save 报 error: no file path. use 'save <file.svg>' first |
 | 数值域 | 接受有限浮点与负坐标；尺寸、半径、stroke-width 不得为负，画布宽高及 scale factor 必须为正；参数过多、缺失和非数值一律拒绝 |
 | init 可选尺寸 | init 默认 800×600；只给 w 时 h 取 600；canvas 修改必须同时给 w/h，无参只查询 |
@@ -254,7 +255,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 等待阶段 4A 任务 |
-| 4A History | 进行中 | 契约/帮助优化 `befdf88` 已推送且双平台 CI 通过；4A.1 历史模块本地验收中 | 无 | 4A.1 推送并核实 CI 后接入 4A.2 |
+| 4A History | 待验收 | 优化 `befdf88`、4A.1 `0df2526` 已分别推送且双平台 CI 通过；4A.2 本地 235 项及交互验收通过 | 无 | 核实 4A.2 推送与 CI 后记录完成 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |

@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；执行与质量要求、Parser、领域、应用入口和查询实现更新：2026-10-27。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade 和首个 CreateCommand 已落地，tree/show/help 已连接真实入口。完整历史及 Composite 几何操作仍按后续阶段实现，不代表已经验收。
+架构基线：2026-10-26，v1.1；历史管理与会话实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、CreateCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口。Composite 几何操作及 SVG IO 仍按后续阶段实现，不代表已经验收。
 
 ## 架构方案
 
@@ -29,7 +29,7 @@
 | 领域文档 | `src/domain/document/` | `SvgDocument`、画布尺寸、根级图形集合、id 索引、父子关系和文档级约束 | SVG 文档语义；不感知终端和文件系统 |
 | 领域图形 | `src/domain/shapes/` | `Shape`、`ContainerShape` 等抽象契约；封装公共属性、几何操作和子树遍历接口 | 图形语义与 Composite 操作 |
 | 图形注册 | `src/shapes/` | 六种内置图形类、`ShapeFactory`、图形类型注册表和 SVG 属性映射 | 类型名到图形类的唯一工厂分派 |
-| 命令 | `src/commands/` | `Command` 接口及每个编辑命令；保存执行前状态并实现 `execute` / `undo` | 领域对象和命令结果，不读写终端 |
+| 命令 | `src/commands/` | `Command` 接口及每个编辑命令；保存执行前状态并实现 `execute` / `undo` | 领域对象和恢复状态，不读写终端 |
 | 应用编排 | `src/application/` | `EditorSession`、命令注册与处理器、参数验证、`HistoryManager`、结果和 tree/show 格式化 | 命令、领域文档、工厂、IO 服务 |
 | 输入解析 | `src/cli/parser/` | 通用词法解析：行拆分、双引号、整行注释；返回保留引号来源的词元 | 不按命令名或类型名二次分派，不改变领域状态 |
 | CLI 界面 | `src/cli/` | REPL 生命周期、`svg>` 提示符、输入输出和错误前缀格式 | 应用层返回的结构化结果 |
@@ -79,7 +79,7 @@ doc/
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
 
-当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档。ShapeFactory 同一注册项保存创建函数与 CLI 参数规则；按必填参数、可选样式、尾部未加引号 in 的顺序解析。CreateCommand 保存图形实例、父 id 和首次同级位置，execute/undo 通过领域插入/摘除完成，重复执行恢复原实例与顺序。当前未保留历史栈，CLI undo/redo 尚未开放。
+当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数与 CLI 参数规则；按必填参数、可选样式、尾部未加引号 in 的顺序解析。CreateCommand 保存图形实例、父 id 和首次同级位置，HistoryManager 调用 execute/undo，经领域插入/摘除恢复原实例与顺序。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。
 
 ### 4. PlantUML 组件图
 
@@ -137,7 +137,7 @@ end note
 
 成功摘要由应用层处理器依据已验证参数和目标对象生成，并转换为 `CommandResult`；CLI 只负责统一呈现。阶段 4A 的 HistoryManager 保存命令及应用层提供的撤销/重做反馈，操作成功后才返回相应反馈；不让 commands 反向依赖应用层结果、终端或历史。领域恢复由命令负责，历史层不按命令名判断摘要或操作。
 
-4A.1 已实现 `HistoryManager.execute(command, feedback)`、`undo()`、`redo()` 与 `resetAfterIo()`。反馈在执行前复制并冻结；执行成功才入 undo 栈、清空 redo 并解除 IO 锁定，undo/redo 成功才移动栈顶。IO 重置清空两栈并锁定，须由应用层在文档操作成功后调用。历史管理器不修复命令的部分写入，`Command` 契约要求失败时领域状态不变。CLI 接线由 4A.2 完成。
+4A 已实现 `HistoryManager.execute(command, feedback)`、`undo()`、`redo()` 与 `resetAfterIo()`，并接入 EditorSession。反馈在执行前复制并冻结；执行成功才入 undo 栈、清空 redo 并解除 IO 锁定，undo/redo 成功才移动栈顶。成功 init 重置两栈并锁定；read/save/canvas 后续复用该接口。历史管理器不修复命令的部分写入，`Command` 契约要求失败时领域状态不变。撤销 create 输出 `类型#id removed`，重做复用首次创建摘要（含父容器）。
 
 每条编辑命令对应一个 undo 单元。从首次接入 create 开始就走 Command 路径，不先实现一条绕过历史的直接编辑路径。命令保存父节点、同级位置、旧属性或封装快照；先验证完整候选结果再写入。move/scale 恢复旧几何值，不仅使用逆运算，以免浮点误差积累；redo 复用保存结果。`GroupCommand` 即使移动多个图形，也只作为一个命令进入历史栈。
 
@@ -306,6 +306,12 @@ end note
 - **确认**：对照接口、构造器及 EditorSession 的成功结果生成位置，并检查当前五个注册项均已显式传入语法；这是文档偏差和后续登记风险，不是当前命令运行缺陷。
 - **纠正**：文档以无参接口为准，明确应用处理器生成摘要，4A 的历史项保存应用层反馈。移除 syntax 默认参数，类型层要求显式登记，同时对运行时缺失回调拒绝且不占用名称；测试验证漏填不能编译、不能注册，随后可正确登记。保留回调的动态求值，不额外引入帮助清单或名字分派。
 
+### 2026-10-28：历史接线中的父容器错误与残留文档校验
+
+- **发现**：为在编辑前生成摘要，初版接线把父 id 直接交给 require，缺失父目标会变成 no such shape，而原 CreateCommand 按容器查询应报 no such container。另发现模块表仍写命令感知“命令结果”，与刚明确的无参 void 契约不一致。
+- **确认**：对照 SvgDocument.require/childrenOf、原 create 错误断言和 Command 接口；缺失与非容器父目标是既有验收要求，不能因摘要职责调整而改变。模块表与模式段交叉核对确认残留表述。
+- **纠正**：应用处理器先验证容器，再生成反馈并交给 HistoryManager；CreateCommand 仍保留自身校验。原错误断言继续通过，新增查询/失败请求保留 undo 与 redo 的会话测试。模块表改为感知领域对象与恢复状态，摘要仅归应用层；同步移除“CLI 未开放历史”的过时说明。
+
 ## 一致性自查
 
 阶段 2 实际源码抽样（2026-10-27）：
@@ -334,7 +340,15 @@ end note
 3. 命令与图形语法都附在原有注册项，help 枚举注册信息，不另建命令/类型映射。扩展 marker 证明新增几何与创建帮助无需改格式化器或 EditorSession。查询直接返回结构化结果，不创建 Command、不改变文档；历史接入后仍须验证查询保留 undo/redo。
 4. Factory/Registry 与 Facade 持续复用；本阶段未增加新模式。Composite 的统一显示依赖抽象属性和文档拓扑，完整几何行为仍由 4B/4C 验收；不将查询成功等同于完整编辑器完成。
 
+阶段 4A 增量源码抽样（2026-10-28）：
+
+1. 抽查 `HistoryManager.ts`、`EditorSession.ts`、`Command.ts`、`CreateCommand.ts` 和 `CommandDispatcher.ts`。生产类保持单类同名文件、私有字段；历史只依赖 Command 接口，不认识具体命令名或图形类型。CreateCommand 仍只依赖领域与命令接口，领域与 Parser 无接线变更。
+2. HistoryManager 作为 Command 的调用方，使用同一实例执行/撤销/重做；命令负责恢复，历史负责成功后移动栈项。EditorSession Facade 生成并提交反馈，成功 init 才重置历史。反馈只读复制，错误反馈不会作为历史项保存。
+3. Command/Factory/Registry/Facade 沿用既定职责，没有新增模式或名字分派。完整 Composite 几何操作和其他编辑命令仍待 4B/4C/5 验收；IO 重置目前只接入 init，不把未来文件操作声称为已实现。
+
 ## 质量保证手段
+
+阶段 4A 本地与手工证据：14 文件 235 项通过，包含原 189 项、帮助登记约束 1 项、HistoryManager 7 项、历史会话 36 项、源码/编译入口历史回放各 1 项。严格 typecheck、pretest 构建、format:check、git diff --check 通过。历史专项验证失败执行/撤销/重做保留栈且可重试；会话验证六种类型与父关系、查询/失败请求保留双栈、成功编辑清空 redo、成功 init 锁定及失败 init 不改历史。真实入口加入待重做期间词法错误，后续 redo 仍成功。Windows PTY 验证中文文本撤销重做、重复 id 后重做、init 锁定、新编辑解锁和 Ctrl+D 退出码 0。精确提交与双平台 CI 证据见开发方案第 8 节。
 
 阶段 3C 本地与手工证据：12 文件 189 项通过，原 156 项回归全部保留；新增查询/属性/深树 24 项、帮助与注册元数据 5 项、源码/编译入口查询及 help 各 2 项。严格 typecheck、pretest 构建、format:check、git diff --check 均通过。Windows PTY 验证编译入口 tree/show 中文内容、实际 parent、错误后继续查询、未初始化 help、错误 help 后成功创建，以及 Ctrl+D 退出码 0。两个实现模块的精确 SHA、推送与 CI 证据以开发方案第 8 节为准。
 

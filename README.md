@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3A adds the domain model and shape factory; stage 3B connects `init` and `create` for all six built-in shapes; stage 3C adds `tree`, `show` and `help`. Editing history and file operations follow in later stages; `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4A connects `undo`/`redo` to creation history. Other editing commands and file operations follow in later stages; `box` is outside the current project scope.
 
 ## Requirements
 
@@ -70,7 +70,20 @@ The parser preserves argument order and whether each argument was quoted. It for
 
 `ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
 
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `tree [id]`, `show <id>` and `help` are available in the real REPL. Command-level undo is tested, but CLI undo/redo and history are only connected in stage 4A.
+`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
+
+Each successful create is one undo unit. `undo` removes that shape; `redo` restores the same instance, attributes, parent and sibling position. A new successful edit after undo clears the redo branch. Queries, malformed input and failed commands preserve history. Successful `init` clears both stacks and makes both undo and redo report `undo not allowed after io command` until the next successful edit; failed init preserves the document and history. Ordinary empty stacks report `nothing to undo` or `nothing to redo`. Both history commands accept no arguments and require an initialized document.
+
+```text
+svg> create g example
+g#example created
+svg> undo
+g#example removed
+svg> redo
+g#example created
+```
+
+This history example continues an initialized session such as the one above. Future read/save/canvas operations will share the IO reset rule when implemented.
 
 `tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
 
@@ -89,6 +102,6 @@ create g <id>
 
 Every create requires an explicit id. Duplicate ids, missing/non-group parents and invalid numeric parameters are rejected without changing the document. Required text and id tokens may contain `in`; only an unquoted trailing `in` after required parameters starts a parent clause. Optional fill/stroke equal to the literal `in` must be quoted. Empty text is allowed. Unknown types including `box` are rejected. Successful init replaces the document; failed init preserves it.
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The 189 current tests cover domain invariants, factory registration, parsing, real creation/query/help sessions, reversible CreateCommand and both source and compiled entry points, including error recovery and input failure during asynchronous execution.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The 235 current tests cover domain invariants, factory registration, parsing, real creation/query/help/history sessions, reversible CreateCommand and both source and compiled entry points, including failed-history retries, IO locking, error recovery and input failure during asynchronous execution.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.

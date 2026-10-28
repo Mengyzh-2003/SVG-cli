@@ -21,13 +21,15 @@ describe('registered help', () => {
         'tree [id]',
         'show <id>',
         'help',
+        'undo',
+        'redo',
       ],
     });
     expect(session.document).toBeNull();
     // Unimplemented commands must not be advertised as executable.
-    expect(executeLine(session, 'undo')).toEqual({
+    expect(executeLine(session, 'save')).toEqual({
       status: 'error',
-      message: 'unknown command: undo',
+      message: 'unknown command: save',
     });
   });
 

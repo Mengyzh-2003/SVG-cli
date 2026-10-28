@@ -6,6 +6,60 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('runs history, IO locking, branch replacement and error recovery through EOF', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'undo',
+        'init',
+        'redo',
+        'create g scene',
+        'create text label 1 2 "中文 # in" in scene',
+        'undo',
+        'create g scene',
+        'create text broken 0 0 "unfinished',
+        'tree',
+        'help',
+        'redo',
+        'show label',
+        'undo',
+        'create circle c 1 2 3 in scene',
+        'redo',
+        'init 20 30',
+        'undo',
+        'create g fresh',
+        'undo',
+        'redo',
+        'tree',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      "error: no document. use 'init' or 'read' first\nsvg> canvas 800x600 created",
+    );
+    expect(
+      result.stdout.match(/error: undo not allowed after io command/g),
+    ).toHaveLength(2);
+    expect(result.stdout).toContain(
+      'text#label removed\nsvg> error: id already exists: scene',
+    );
+    expect(result.stdout).toContain(
+      'text#label created in g#scene\nsvg> text#label  parent=g#scene',
+    );
+    expect(result.stdout).toContain(
+      'circle#c created in g#scene\nsvg> error: nothing to redo',
+    );
+    expect(result.stdout).toContain(
+      'g#fresh removed\nsvg> g#fresh created\nsvg> svg (20x30)\n└── g#fresh',
+    );
+    expect(result.stdout).toContain('error: unterminated double quote\nsvg> ');
+    expect(result.stdout.match(/error: /g)).toHaveLength(6);
+  });
+
   it('offers help before init and remains usable after invalid help', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -22,7 +76,9 @@ describe.each([
     expect(result.stdout).toContain(
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
-    expect(result.stdout).toContain('tree [id]\nshow <id>\nhelp\nsvg> ');
+    expect(result.stdout).toContain(
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\nsvg> ',
+    );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
     );
