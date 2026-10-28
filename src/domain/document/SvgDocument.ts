@@ -214,6 +214,22 @@ export class SvgDocument {
     return this.#prepareTreeChange(after, roots);
   }
 
+  /** Change drawing order within the existing parent, retaining the subtree. */
+  prepareReorder(id: string, position: 'start' | 'end'): TreeChange {
+    const node = this.#requireNode(id);
+    const siblings = this.#siblings(node.parentId).filter(
+      (child) => child !== id,
+    );
+    if (position === 'start') siblings.unshift(id);
+    else siblings.push(id);
+    // Guard the selected instance as well as the parent's sibling sequence.
+    const after = new Map<string, DocumentNode | undefined>([[id, node]]);
+    if (node.parentId === null) return this.#prepareTreeChange(after, siblings);
+    const parent = this.#requireNode(node.parentId);
+    after.set(node.parentId, { ...parent, children: siblings });
+    return this.#prepareTreeChange(after);
+  }
+
   /** Replace a nested group with its immediate children, retaining local values. */
   prepareUngroup(id: string): TreeChange {
     const node = this.#requireNode(id);

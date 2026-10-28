@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5B 已完成，下一阶段为 5C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5B 已完成，当前阶段为 5C（进行中）。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -134,6 +134,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 5B 内部提交点：5B.1 容器解散能力、SvgDocument.prepareUngroup、UngroupCommand 与领域/命令测试；5B.2 EditorSession 注册、帮助、历史会话与源码/编译入口回归。前一模块单独推送并核实精确 SHA 的 Windows/Linux CI 后再进入下一模块。沿用 TreeChange，不通过逐个 remove/insert 提升孩子；容器默认不可解散，普通 GroupShape 显式开放能力，不按类型名识别复合图形。本阶段不实现 box。
 
+5C 内部提交点：5C.1 SvgDocument.prepareReorder、ReorderCommand 与领域/命令测试；5C.2 显式注册 front/back、帮助、历史会话及源码/编译入口回归。每个模块单独验收、提交、推送并核实精确 SHA 的双平台 CI 后再继续。复用 TreeChange，保存目标记录与当前父同级顺序，不删除重插子树。
+
 验收：跨父节点收编、原有相对顺序、同级前后位置与 id 索引一致；拒绝重复选择、祖先与后代同时 group、自己移入自己或移入后代；顶层 g 的 ungroup 必须拒绝，嵌套 g 解散后子节点准确占据原位置。每条命令一次 undo 恢复所有原父节点与同级位置，redo 恢复操作后结构；嵌套容器 move/scale 的结果正确。
 
 提交粒度：5A、5B、5C；若 group 与 addto 各自已形成完整验收，也可分开提交。
@@ -189,6 +191,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | group 数量与反馈 | 接受至少一个已有节点，空组使用 create g；语法 group <newGid> <id1> [id2 ...]。成功/重做沿用需求示例 g#id created with N children；撤销显示 g#id removed; N children restored，准确描述恢复所有原父位置，不等同于受顶层限制的 ungroup 命令 |
 | addto 错误与反馈 | 先校验目标容器，再校验源节点；自身/后代成环分别报 cannot add a container into itself: id / cannot add a container into its own descendant: id。成功/重做显示 类型#id added to 类型#目标，撤销显示 类型#id restored into svg 或 类型#原父；本地属性不做补偿 |
 | ungroup 校验与反馈 | 先按节点查询（缺失报 no such shape），叶子报 not a container；不可解散容器报需求规定的 cannot ungroup composite shape，之后检查顶层限制。成功/重做显示 类型#id ungrouped; N children promoted into 类型#原父，撤销显示 类型#id restored with N children。空嵌套组可解散并占一个历史单元；只提升直接孩子，保留所有本地属性，不补偿失去的组样式继承 |
+| front/back 反馈与边界 | front 移到当前同级末尾，back 移到开头，父子归属与后代不变。成功/重做显示 类型#id brought to front / sent to back；撤销显示 类型#id sibling order restored in svg 或 类型#父id。已在边界或唯一同级仍记一次成功编辑，清空 redo；缺失目标报 no such shape，参数仅接受一个非空 id |
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
@@ -275,7 +278,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
-| 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
+| 5C front/back | 进行中 | 5C.1 领域与命令验收中，5C.2 CLI 待接入 | 无 | 分模块推送并核实 CI |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
@@ -420,3 +423,8 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **5B.2 远程核实**：`bbf4e3a2003d82789480d239b0dac20fa47d63f8` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40637063097](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40637063097) 对应该 SHA，Windows/Linux completed/success。5B.1 远程通过后才实施 5B.2。
 - **结论、文档与模式**：阶段完成，无阻塞。保留原 456 项，共新增 42 项。Command 将整次解组作为一个历史单元，Composite 沿用领域能力和统一树接口，Factory/Registry 与 EditorSession Facade 继续复用，不增加模式或按类型名分派。架构和根 README 同步解组能力、错误及使用示例。过程记录补充容器归属/解散能力边界与测试误将换行交给单行 Parser 的发现、确认、纠正；常规进度只记本节。
 - **记录提交与下一步**：本验收记录单独作文档提交，其自身 push/CI 在阶段报告核实，避免 SHA 自引用。下一阶段 5C 实现 ReorderCommand 与 front/back：在原父容器或 svg 根中调整同级顺序，front 置数组末尾（最后绘制、视觉最前），back 置数组开头；保留父子归属、后代结构、id 与属性，支持一次 undo 精确恢复原位与 redo，并覆盖失败保留历史、边界位置及混合命令。执行时仍按模块反馈、提交、push 和核实 CI。本次未开始 5C、未实现 SVG IO 或 box，未创建 final tag。
+
+### 阶段 5C 验收记录（2026-10-28，进行中）
+
+- **5C.1 本地验收**：29 文件 522 项通过，保留原 498 项，新增领域/命令测试 24 项。typecheck、pretest 构建、format:check、git diff --check 均通过。SvgDocument.prepareReorder 复用 TreeChange，检查目标实例及当前父同级顺序，保持原父节点、属性和后代结构；ReorderCommand 保存同一变更，执行/撤销/重做不重算位置。
+- **5C.1 专项证据**：根/嵌套、首/中/尾节点、双方向、组与叶子、边界不变编辑、单节点、缺失后重试、陈旧 apply/undo/redo 原子拒绝与重试、同 id 替换对象拒绝、后续属性及无关子树变动保持、2000 层操作均通过。CLI 尚未注册，推送并核实 CI 后才开始 5C.2；本提交自身 SHA/CI 在后续记录补全。
