@@ -412,7 +412,11 @@ end note
 
 阶段 5B 一致性抽样（2026-10-28）：检查 UngroupCommand、SvgDocument.prepareUngroup、ContainerShape、GroupShape 和 EditorSession。命令仅依赖领域及 Command；领域不 import 应用层、CLI、具体 shapes 或文件系统。生产类保持单类同名文件、私有字段，canUngroup 是只读能力；父子关系仍由文档唯一持有。沿用 Command/Composite/Factory/Registry/Facade，未新增设计模式或名字分派；可持有孩子与可解散分开表达。Parser、HistoryManager 的边界没有变化，反馈由应用层生成并由历史冻结，失败不入栈。测试中的受保护容器仅验证能力契约，不是 box 或插件实现。front/back 与 SVG IO 尚待实现。
 
+阶段 5C 一致性抽样（2026-10-28）：检查 ReorderCommand、SvgDocument.prepareReorder、TreeChange、EditorSession 注册及共享排序处理器。命令只依赖领域与 Command；领域未引用应用、CLI、具体 shapes 或文件系统；生产类保持单类同名文件与私有字段。拓扑和 id 索引由文档唯一维护，排序仅修改当前父的同级序列，缓存变更检查目标实例及受影响记录；不复制后代属性或 children 存储。两个命令在既有分发器显式登记并注入方向，没有第二次按名字分派，Parser 和 HistoryManager 契约不变。继续使用 Command、Composite、Factory/Registry、Facade，没有新增模式；SVG IO 留待阶段 6。
+
 ## 质量保证手段
+
+阶段 5C 质量证据：30 文件 554 项通过，保留原 498 项；新增领域/命令 24 项、应用会话 30 项、源码/编译入口各 1 项。typecheck、pretest 构建、format:check、git diff --check 通过。覆盖根/嵌套双方向、首中尾与唯一同级、边界不变编辑、对象身份及同 id 替换、原属性/子树保持、陈旧拓扑失败与重试、2000 层树、失败保留历史、混合命令多轮撤销重做及 IO 锁定。真实入口验证词法/语义错误后 redo、中文、顺序与父关系；Windows PTY 验证交互和 Ctrl+D 退出 0。两个实现模块分别推送，并通过精确 SHA 的 Windows/Linux CI，提交和链接见开发方案第 8 节。
 
 阶段 5B 质量证据：28 文件 498 项通过，保留原 456 项；领域/命令新增 21、应用会话新增 19、源码/编译入口各新增 1。typecheck、pretest 构建、format:check 和 git diff --check 通过。覆盖首/中/尾原位提升、空组、只提升直接孩子、2000 层树、原实例/属性/缺省样式保持、顶层及受保护容器拒绝、失败不改双栈、拓扑冲突与重试、id 复用、跨文档归属、混合命令重复撤销重做、IO 锁定和输出转义。源码及编译入口回放中文解组、show 父关系、词法错误与顶层拒绝后 redo；Windows PTY 验证交互与 Ctrl+D 退出 0。两个实现模块分别推送且精确 SHA 的 Windows/Linux CI 均通过，完整 SHA、链接和阶段状态见开发方案第 8 节。
 
