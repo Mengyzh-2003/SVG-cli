@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；实现更新至 6A：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup/front/back 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。SvgReader/SvgWriter 已完成内存编解码，文件与路径在 6B、canvas 与完整文档历史在 6C 接入；远程验收见开发方案第 8 节。
+架构基线：2026-10-26，v1.1；实现更新至 6B.1：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup/front/back 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。SvgReader/SvgWriter 已完成内存编解码，SvgFileStore 已完成文件读写边界；REPL 文件命令与路径/历史接线在 6B.2，canvas 与完整文档历史在 6C；远程验收见开发方案第 8 节。
 
 ## 架构方案
 
@@ -33,7 +33,7 @@
 | 应用编排 | `src/application/` | `EditorSession`、命令注册与处理器、参数验证、`HistoryManager`、结果和 tree/show 格式化 | 命令、领域文档、工厂、IO 服务 |
 | 输入解析 | `src/cli/parser/` | 通用词法解析：行拆分、双引号、整行注释；返回保留引号来源的词元 | 不按命令名或类型名二次分派，不改变领域状态 |
 | CLI 界面 | `src/cli/` | REPL 生命周期、`svg>` 提示符、输入输出和错误前缀格式 | 应用层返回的结构化结果 |
-| SVG IO | `src/io/` | XML 读取、序列化、缺失 id 自动分配、文件错误转换，以及外部解析禁用和输入资源限制 | 文档结构和图形工厂；不依赖 CLI |
+| SVG IO | `src/io/` | XML 读取、序列化、缺失 id 自动分配、有界文件适配和错误转换，以及外部解析禁用和输入资源限制 | 文档结构和图形工厂；不依赖 CLI |
 | 测试 | `test/` | 领域、命令、IO、解析和 CLI 会话测试 | 被测公共接口 |
 | 组合根 | `src/main.ts` | 实例化依赖、注册内置命令和图形、注入 IO、启动 REPL | 可依赖各模块用于装配 |
 
@@ -173,7 +173,7 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 领域只承载 SVG 语义：Shape 封装附加属性并提供 svgAttributes/textContent 多态视图，TextShape 区分子文本与同名附加属性；SvgDocument 保存独立 viewBox 和根元数据，并在插入/分组时保留根 id。Writer 迭代读取统一树接口，保留层级顺序、缺省样式和附加属性，正确转义实体与 XML 空白；xmlchars 校验名称/字符，saxes 校验最终命名空间。Reader 将带前缀属性所需声明固化到节点本地，保证重组后可写。
 
-读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。文件路径、CLI read/save/canvas、IO 历史和浏览器预览证据仍按 6B/6C 验收。
+读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。CLI read/save/canvas、路径上下文、IO 历史和浏览器预览证据仍按 6B.2/6C 验收。
 
 #### Facade：应用层的稳定入口
 

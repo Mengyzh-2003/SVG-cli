@@ -282,7 +282,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
 | 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 已进入 6B.1 |
-| 6B 文件与路径 | 进行中 | 6B.1 本地验收 34 文件 675 项通过，类型/构建/格式/diff 检查通过；待独立推送及精确 SHA 的双平台 CI | 无 | 6B.1 远程验收后再开始 6B.2 会话接线 |
+| 6B 文件与路径 | 进行中 | 6B.1 `71e2361da7cacb274fcd1b97a793df5610da3d3d` 已推送并核实远端 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428) Windows/Linux 均成功；34 文件 675 项及本地质量检查通过 | 无 | 开始 6B.2 read/save 会话接线 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
 
@@ -453,3 +453,10 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **6A.4 语义复核**：确认 ShapeFactory 统一补零会改变省略 ellipse 半径的 SVG `auto` 行为，已由注册项缺省规则修复；确认混合 SVG/空命名空间会被静默转换，已由 Reader 一致模式校验拒绝。回归涵盖单侧/双侧缺省、显式零、读写往返、默认/前缀/无命名空间及混合拒绝。椭圆修复 `1c380bd2b1537954e06480c3d3cec13fbafff3a9` 已推送，[CI 40655791296](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40655791296) Windows/Linux 成功；命名空间修复 `06cf7875d7b6f9e0782235ea48f312c6e7ad95cc` 的本地 33 文件 666 项、typecheck、build、format:check、diff check 均通过且已推送，[CI 40659631648](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40659631648) Windows/Linux 成功。根 README 与架构过程记录已更正。
 - **6A.5 文档与远程核验**：架构/计划及根 README 已同步修复语义；`4c6130774a8f5adf4a31cfa1c877cc237cc6e2b1` 已推送并核实远程 HEAD，[CI 40659763983](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40659763983) Windows/Linux 成功。当前 HEAD 与远程 `main` 一致，工作区干净。HTTPS 推送失败后改用 SSH 完成推送，不存在未解决的推送阻塞。
 - **模式与下一步**：Factory/Registry 的同一注册表服务 CLI 与 SVG 构造，Composite 的统一树/属性视图用于序列化；Command 和 Facade 保持既有职责，没有新增名字分派或多余模式。下一阶段 6B 分模块实现实际累计字节有界读取、同目录临时文件保存/替换及失败清理、路径与文件错误转换，再接入 read/save 会话；成功后才发布路径/文档及重置历史，失败保留旧状态。canvas 属 6C，浏览器打开保存文件与完整 CLI IO 验收在接入后完成。本阶段不实现 box、不创建 final tag。
+
+### 阶段 6B.1 执行记录（2026-10-28）
+
+- **实现**：新增 `SvgFileStore`，文件读取不依赖 `stat`，循环按实际字节累计并仅在精确 5 MiB 后多读一个字节判界；strict UTF-8 解码，文件系统和解码失败统一为单行 `SvgFileError`，超限保留独立类别。写入时在目标同目录以独占模式创建 UUID 临时文件，完整写入、sync、close 后调用 rename；创建、写入或替换失败映射为稳定错误并清理临时文件，旧目标保持原内容。该类不接触 EditorSession、文档或历史。
+- **本地验收**：34 个测试文件、675 项通过（较 6A 增加 9 项）；9 项专测覆盖 exact 5 MiB、多字节 UTF-8 边界、严格解码、路径换行、缺失文件、unicode 路径、目标创建/替换、实际替换目录失败及注入的部分写入/替换失败。后两类失败均核实旧内容不变且无临时文件。`npm test`（含构建）、`npm run typecheck`、`npm run format:check`、`git diff --check` 均通过。
+- **远程验收**：实现提交 `71e2361da7cacb274fcd1b97a793df5610da3d3d` 已推送，SSH `ls-remote` 与提交精确一致；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428) 对应该 SHA，Windows/Linux 均完成并成功。
+- **边界与后续**：`SvgFileStore` 仅做文件文本适配，尚不解析 SVG、不修改默认路径/文档/历史，也没有接入 REPL；这些属于 6B.2。写入使用 same-directory rename 实现替换，具体原子性受目标文件系统及平台 rename 语义约束。本阶段没有新增设计模式或标签分派。
