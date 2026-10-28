@@ -5,6 +5,8 @@ export interface ShapeStyleOptions {
   readonly fill?: string;
   readonly stroke?: string;
   readonly strokeWidth?: number;
+  /** Preserved SVG metadata; it does not expand the editable schema. */
+  readonly extraAttributes?: Readonly<Record<string, string>>;
 }
 
 export abstract class Shape {
@@ -12,6 +14,7 @@ export abstract class Shape {
   #fill: string | undefined;
   #stroke: string | undefined;
   #strokeWidth: number | undefined;
+  readonly #extraAttributes: Readonly<Record<string, string>>;
 
   protected constructor(id: string, style: ShapeStyleOptions = {}) {
     if (id.length === 0) {
@@ -30,6 +33,7 @@ export abstract class Shape {
     this.#fill = style.fill;
     this.#stroke = style.stroke;
     this.#strokeWidth = style.strokeWidth;
+    this.#extraAttributes = Object.freeze({ ...style.extraAttributes });
   }
 
   get id(): string {
@@ -46,6 +50,18 @@ export abstract class Shape {
 
   get strokeWidth(): number | undefined {
     return this.#strokeWidth;
+  }
+
+  get textContent(): string | undefined {
+    return undefined;
+  }
+
+  get svgAttributes(): Readonly<Record<string, number | string>> {
+    return this.attributes;
+  }
+
+  protected get extraAttributes(): Readonly<Record<string, string>> {
+    return this.#extraAttributes;
   }
 
   abstract get type(): string;
@@ -116,6 +132,7 @@ export abstract class Shape {
 
   get attributes(): Readonly<Record<string, number | string>> {
     return Object.freeze({
+      ...this.#extraAttributes,
       ...this.geometry,
       ...(this.#fill === undefined ? {} : { fill: this.#fill }),
       ...(this.#stroke === undefined ? {} : { stroke: this.#stroke }),

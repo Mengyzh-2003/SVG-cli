@@ -27,10 +27,17 @@ export type ShapeCliParser = (
   readonly parentId: string | null;
 };
 
+export type ShapeSvgParser = (
+  id: string,
+  attributes: Readonly<Record<string, string>>,
+  text: string,
+) => ShapeCreationSpecification;
+
 interface ShapeRegistration {
   readonly create: (specification: ShapeCreationSpecification) => Shape;
   readonly parseCli?: ShapeCliParser;
   readonly cliSyntax?: string;
+  readonly parseSvg?: ShapeSvgParser;
 }
 
 export class ShapeFactory {
@@ -115,6 +122,7 @@ export class ShapeFactory {
     creator: RegisteredShapeCreator,
     parseCli?: ShapeCliParser,
     cliSyntax?: string,
+    parseSvg?: ShapeSvgParser,
   ): void {
     this.#registerCreator(
       type,
@@ -126,6 +134,7 @@ export class ShapeFactory {
       },
       parseCli,
       cliSyntax,
+      parseSvg,
     );
   }
 
@@ -179,6 +188,24 @@ export class ShapeFactory {
     return shape;
   }
 
+  /** XML decoding uses the same registry as structured and CLI creation. */
+  createFromSvg(
+    type: string,
+    id: string,
+    attributes: Readonly<Record<string, string>>,
+    text = '',
+  ): Shape {
+    const registration = this.#requireRegistration(type);
+    if (registration.parseSvg === undefined) {
+      throw new Error(`SVG creation not supported for shape type: ${type}`);
+    }
+    const specification = registration.parseSvg(id, attributes, text);
+    if (specification.type !== type || specification.id !== id) {
+      throw new Error(`shape parser returned mismatched identity: ${type}`);
+    }
+    return this.create(specification);
+  }
+
   #registerBuiltin<T extends ShapeType>(
     type: T,
     schema: ShapeCliSchema,
@@ -203,7 +230,38 @@ export class ShapeFactory {
         ...(schema.style ? [`[${schema.style}]`] : []),
         '[in <containerId>]',
       ].join(' '),
+      (id, attributes, text) => {
+        const values: Record<string, unknown> = { type, id };
+        const known = new Set(['id', 'fill', 'stroke', 'stroke-width']);
+        for (const name of schema.numbers) {
+          known.add(name);
+          values[name] = this.#svgNumber(attributes[name] ?? '0', name);
+        }
+        if (schema.text) values.text = text;
+        if (attributes.fill !== undefined) values.fill = attributes.fill;
+        if (attributes.stroke !== undefined) values.stroke = attributes.stroke;
+        if (attributes['stroke-width'] !== undefined) {
+          values.strokeWidth = this.#svgNumber(
+            attributes['stroke-width'],
+            'stroke-width',
+          );
+        }
+        values.extraAttributes = Object.fromEntries(
+          Object.entries(attributes).filter(([name]) => !known.has(name)),
+        );
+        return values as unknown as ShapeSpecificationByType[T];
+      },
     );
+  }
+
+  #svgNumber(raw: string, name: string): number {
+    if (
+      !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw.trim()) ||
+      !Number.isFinite(Number(raw))
+    ) {
+      throw new Error(`${name} must be a finite SVG number`);
+    }
+    return Number(raw);
   }
 
   #parseBuiltin<T extends ShapeType>(
@@ -267,6 +325,7 @@ export class ShapeFactory {
     creator: (specification: ShapeCreationSpecification) => Shape,
     parseCli?: ShapeCliParser,
     cliSyntax?: string,
+    parseSvg?: ShapeSvgParser,
   ): void {
     if (type.length === 0) {
       throw new Error('shape type cannot be empty');
@@ -286,6 +345,7 @@ export class ShapeFactory {
       create: creator,
       ...(parseCli === undefined ? {} : { parseCli }),
       ...(cliSyntax === undefined ? {} : { cliSyntax }),
+      ...(parseSvg === undefined ? {} : { parseSvg }),
     });
   }
 }

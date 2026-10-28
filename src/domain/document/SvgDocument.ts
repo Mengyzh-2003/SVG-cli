@@ -3,6 +3,7 @@ import { Shape } from '../shapes/Shape.js';
 import type { ShapeSubtree } from './ShapeSubtree.js';
 import { GeometryChange } from '../shapes/GeometryChange.js';
 import { TreeChange } from './TreeChange.js';
+import type { SvgDocumentOptions } from './SvgDocumentOptions.js';
 
 interface DocumentNode {
   readonly shape: Shape;
@@ -14,10 +15,12 @@ export class SvgDocument {
   static readonly #owners = new WeakMap<Shape, SvgDocument>();
   readonly #width: number;
   readonly #height: number;
+  readonly #viewBox: string;
+  readonly #extraAttributes: Readonly<Record<string, string>>;
   #roots: string[] = [];
   readonly #nodes = new Map<string, DocumentNode>();
 
-  constructor(width = 800, height = 600) {
+  constructor(width = 800, height = 600, options: SvgDocumentOptions = {}) {
     if (
       !Number.isFinite(width) ||
       !Number.isFinite(height) ||
@@ -28,6 +31,23 @@ export class SvgDocument {
     }
     this.#width = width;
     this.#height = height;
+    this.#viewBox = options.viewBox ?? `0 0 ${width} ${height}`;
+    const coordinates = this.#viewBox.trim().split(/[\s,]+/);
+    if (
+      coordinates.length !== 4 ||
+      coordinates.some(
+        (value) =>
+          !/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value) ||
+          !Number.isFinite(Number(value)),
+      ) ||
+      Number(coordinates[2]) <= 0 ||
+      Number(coordinates[3]) <= 0
+    ) {
+      throw new Error(
+        'viewBox must contain four finite numbers with positive dimensions',
+      );
+    }
+    this.#extraAttributes = Object.freeze({ ...options.extraAttributes });
   }
 
   get width(): number {
@@ -39,7 +59,11 @@ export class SvgDocument {
   }
 
   get viewBox(): string {
-    return `0 0 ${this.#width} ${this.#height}`;
+    return this.#viewBox;
+  }
+
+  get extraAttributes(): Readonly<Record<string, string>> {
+    return this.#extraAttributes;
   }
 
   get size(): number {

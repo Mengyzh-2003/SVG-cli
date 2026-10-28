@@ -53,4 +53,13 @@ export class TextShape extends GeometryShape {
   get text(): string {
     return this.#text;
   }
+
+  override get textContent(): string {
+    return this.#text;
+  }
+
+  override get svgAttributes(): Readonly<Record<string, number | string>> {
+    const { text: _content, ...attributes } = this.attributes;
+    return Object.freeze({ ...this.extraAttributes, ...attributes });
+  }
 }

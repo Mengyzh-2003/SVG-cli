@@ -279,7 +279,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
-| 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
+| 6A SVG 编解码 | 进行中 | 6A.0 模型/工厂准备本地 577 项通过，后续证据见下 | 无 | 各模块独立推送并核实 CI |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
@@ -434,3 +434,10 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **5C.2 远程核实**：`daf2251ad1a2b99f50d292e2421e875dd46c46a6` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40646295218](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40646295218) 对应该 SHA，Windows/Linux completed/success。
 - **阶段结论与模式**：完成，无阻塞；保留原 498 项，共新增 56 项。ReorderCommand 落实 Command 的单次历史单元；Composite 继续统一组/叶子树操作，Facade 编排语法、反馈与历史；沿用 Factory/Registry，无新增名字分派或设计模式。生产类单类同名文件、私有字段，命令仅依赖领域及 Command，领域未增加反向依赖。
 - **收尾与下一步**：验收记录独立作文档提交，其自身 SHA 和 CI 在阶段报告核实，避免自引用。下一阶段 6A 先实现内存 SVG 编解码：选定 XML 库并验证外部实体/网络禁用、DTD 拒绝和解析期间资源限制，复用 ShapeFactory 读入六种图形，覆盖命名空间、层级顺序、属性、文本转义、缺 id 补全及 round-trip。文件读写与路径属 6B，canvas 与完整文档历史属 6C；本次不开始上述阶段，不实现 box、不创建 final tag。
+
+### 阶段 6A 执行记录（2026-10-28）
+
+- **状态**：进行中；按 6A.0 模型/工厂准备、6A.1 事件式内存读取、6A.2 序列化与 round-trip、6A.3 文档收尾分别验收、推送。前一模块精确 SHA 的双平台 CI 成功后再进入下一模块。
+- **6A.0 内容**：Shape 封装只读附加 SVG 属性，TextShape 通过 textContent/svgAttributes 区分子文本和属性；SvgDocument 保存独立 viewBox 与根元数据并校验坐标系；ShapeFactory 原注册项新增 SVG 参数转换，不增加标签分派表。几何省略按 SVG 初始值 0；本阶段仅支持无单位有限 SVG 数字，不接受 px/%、十六进制等。
+- **后续目标**：6A.1 使用 saxes 的严格 XML 事件接口，在解析期间限制深度/数量，禁止 DTD/自定义实体与外部资源解析；缺 id 预收集后分配并只在完整成功时返回 warning。6B 才接入文件、路径和 read/save；6C 才接入 canvas 与完整文档历史。
+- **6A.0 本地验收**：31 文件 577 项通过（原 554 项全部保留，新增 23 项）；typecheck、pretest 构建、format:check、git diff --check 通过。无阻塞；XML 依赖与 Reader 随下一小模块单独提交。

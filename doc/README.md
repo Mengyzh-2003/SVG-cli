@@ -450,3 +450,9 @@ end note
 - 阶段 1 起按 Node.js 24 LTS / 约定 npm 主版本建立 Windows、Linux CI；每次 push/PR 运行 npm ci、format:check、typecheck、build 和 test，保留精确 SHA 的结果链接。CI 不能替代交互与浏览器验收。
 - 阶段 6 验证外部实体/网络解析禁用、DTD 拒绝，以及大小、深度、元素数量的解析期间限制；超限失败不改变文档、路径或历史。
 - 根开发方案第 8 节持续记录阶段状态与证据；最终按根 README 从干净检出验证使用者交接。
+
+### 阶段 6A：SVG 模型承载能力不足（2026-10-28）
+
+- **发现**：对照既有方案 5.2 和生成的模型，Shape 只有可编辑几何/样式，SvgDocument.viewBox 总由尺寸推导；若直接接入 Reader，外部 transform/字体属性及独立 viewBox 会在读取时丢失。
+- **确认**：核对 Shape.attributes、TextShape.geometry 和 SvgDocument getter，文本还以内部 text 字段暴露；直接遍历 attributes 序列化会误把子文本写成属性。用附加 text 属性与真实文本不同的用例确认二者必须独立。
+- **纠正**：封装只读附加属性和独立 viewBox，保留严格编辑白名单；以 Shape.svgAttributes/textContent 与 TextShape 多态覆写提供序列化视图。SVG 创建转换附在既有 ShapeFactory 注册项，沿用 Factory/Registry，不在 Reader 新增按标签分派。用元数据在编辑后保持、原始 viewBox 及六种类型测试验证。
