@@ -29,6 +29,7 @@ describe('registered help', () => {
         'set <id> <attr> <value>',
         'group <newGid> <id1> [id2 ...]',
         'addto <gid> <id>',
+        'ungroup <gid>',
       ],
     });
     expect(session.document).toBeNull();

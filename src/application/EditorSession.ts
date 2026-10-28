@@ -11,6 +11,7 @@ import { ScaleCommand } from '../commands/ScaleCommand.js';
 import { SetAttributeCommand } from '../commands/SetAttributeCommand.js';
 import { GroupCommand } from '../commands/GroupCommand.js';
 import { AddToCommand } from '../commands/AddToCommand.js';
+import { UngroupCommand } from '../commands/UngroupCommand.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
@@ -88,6 +89,11 @@ export class EditorSession implements CommandExecutor {
       'addto',
       (request) => this.#addTo(request),
       () => ['addto <gid> <id>'],
+    );
+    this.#dispatcher.register(
+      'ungroup',
+      (request) => this.#ungroup(request),
+      () => ['ungroup <gid>'],
     );
   }
 
@@ -350,6 +356,27 @@ export class EditorSession implements CommandExecutor {
           ],
         },
       ),
+    };
+  }
+
+  #ungroup(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 1 || request.args[0]!.value === '') {
+      throw new Error('usage: ungroup <gid>');
+    }
+    const id = request.args[0]!.value;
+    const shape = document.require(id);
+    const count = document.childrenOf(id).length;
+    const parent = document.parentOf(id);
+    const summary = this.#formatter.identity(shape);
+    return {
+      status: 'success',
+      lines: this.#history.execute(new UngroupCommand(document, id), {
+        undoLines: [`${summary} restored with ${count} children`],
+        redoLines: [
+          `${summary} ungrouped; ${count} children promoted into ${parent === null ? 'svg' : this.#formatter.identity(parent)}`,
+        ],
+      }),
     };
   }
 

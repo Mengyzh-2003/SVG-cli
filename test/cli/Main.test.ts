@@ -6,6 +6,54 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('ungroups nested containers in place and retains redo across rejected input', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create circle before 1 2 3 in scene',
+        'create g branch in scene',
+        'create rect r 10 20 30 40 in branch',
+        'create g inner in branch',
+        'create text t 1 2 "中文" in inner',
+        'create circle after 4 5 6 in scene',
+        'ungroup branch',
+        'show r',
+        'show t',
+        'undo',
+        'ungroup scene',
+        'ungroup "unfinished',
+        'redo',
+        'tree scene',
+        'create g empty in scene',
+        'ungroup empty',
+        'undo',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'g#branch ungrouped; 2 children promoted into g#scene\nsvg> rect#r  parent=g#scene',
+    );
+    expect(result.stdout).toContain(
+      'text#t  parent=g#inner\n  x=1\n  y=2\n  text="中文"',
+    );
+    expect(result.stdout).toContain(
+      'g#branch restored with 2 children\nsvg> error: cannot ungroup top-level container: scene\nsvg> error: unterminated double quote\nsvg> g#branch ungrouped; 2 children promoted into g#scene',
+    );
+    expect(result.stdout).toContain(
+      'g#scene\n├── circle#before cx=1 cy=2 r=3\n├── rect#r x=10 y=20 width=30 height=40\n├── g#inner\n│   └── text#t x=1 y=2 text="中文"\n└── circle#after cx=4 cy=5 r=6',
+    );
+    expect(result.stdout).toContain(
+      'g#empty ungrouped; 0 children promoted into g#scene\nsvg> g#empty restored with 0 children\nsvg> ',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(2);
+  });
+
   it('reparents subtrees, reorders siblings and retains redo across cycle errors', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -233,7 +281,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -346,7 +394,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
