@@ -8,6 +8,7 @@ import { CreateCommand } from '../commands/CreateCommand.js';
 import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { MoveCommand } from '../commands/MoveCommand.js';
 import { ScaleCommand } from '../commands/ScaleCommand.js';
+import { SetAttributeCommand } from '../commands/SetAttributeCommand.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
 
@@ -69,6 +70,11 @@ export class EditorSession implements CommandExecutor {
       'scale',
       (request) => this.#scale(request),
       () => ['scale <id> <factor>'],
+    );
+    this.#dispatcher.register(
+      'set',
+      (request) => this.#set(request),
+      () => ['set <id> <attr> <value>'],
     );
   }
 
@@ -242,6 +248,36 @@ export class EditorSession implements CommandExecutor {
         {
           undoLines: [`${summary} geometry restored`],
           redoLines: [`${summary} scaled by ${factor}`],
+        },
+      ),
+    };
+  }
+
+  #set(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 3 || request.args[0]!.value === '') {
+      throw new Error('usage: set <id> <attr> <value>');
+    }
+    const shape = document.require(request.args[0]!.value);
+    const name = request.args[1]!.value;
+    const raw = request.args[2]!.value;
+    const value =
+      shape.attributeType(name) === 'number'
+        ? this.#parseFinite(raw, name)
+        : raw;
+    return {
+      status: 'success',
+      lines: this.#history.execute(
+        new SetAttributeCommand(document, shape.id, name, value),
+        {
+          undoLines: [
+            this.#formatter.attributeUpdate(
+              shape,
+              name,
+              shape.attributes[name],
+            ),
+          ],
+          redoLines: [this.#formatter.attributeUpdate(shape, name, value)],
         },
       ),
     };

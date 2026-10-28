@@ -26,6 +26,7 @@ describe('registered help', () => {
         'delete <id>',
         'move <id> <dx> <dy>',
         'scale <id> <factor>',
+        'set <id> <attr> <value>',
       ],
     });
     expect(session.document).toBeNull();

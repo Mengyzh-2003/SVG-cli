@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stages 4A–4B connect `undo`/`redo` to creation, subtree deletion, movement and scaling. Attribute editing, grouping commands and file operations follow in later stages; `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Grouping commands and file operations follow in later stages; `box` is outside the current project scope.
 
 ## Requirements
 
@@ -70,7 +70,7 @@ The parser preserves argument order and whether each argument was quoted. It for
 
 `ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
 
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `delete <id>`, `move <id> <dx> <dy>`, `scale <id> <factor>`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
+`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion and subtree removal/restoration methods preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `delete <id>`, `move <id> <dx> <dy>`, `scale <id> <factor>`, `set <id> <attr> <value>`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
 
 Each successful create is one undo unit. `undo` removes that shape; `redo` restores the same instance, attributes, parent and sibling position. A new successful edit after undo clears the redo branch. Queries, malformed input and failed commands preserve history. Successful `init` clears both stacks and makes both undo and redo report `undo not allowed after io command` until the next successful edit; failed init preserves the document and history. Ordinary empty stacks report `nothing to undo` or `nothing to redo`. Both history commands accept no arguments and require an initialized document.
 
@@ -90,6 +90,32 @@ Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one 
 `move <id> <dx> <dy>` translates local coordinates, including both endpoints of a line and every descendant of a group. Sizes, text and styles remain unchanged. All candidate coordinates are validated before any change, so overflow in a later descendant leaves the entire group unchanged. Undo/redo restores captured values exactly. A valid zero displacement or move of an empty group is still one edit and clears redo. Leaf summaries show their local anchor (the first endpoint for a line); group summaries show displacement.
 
 `scale <id> <factor>` multiplies all local coordinates and sizes by a positive finite factor, across the entire selected subtree. Text scales only its x/y position; its content is unchanged. Fill, stroke and stroke width remain unchanged for every shape. Nonpositive factors, nonfinite input and geometric overflow are rejected without changing any node or history. Finite underflow to zero follows JavaScript numeric semantics; undo still restores the exact original values. A factor of 1 or scaling an empty group counts as an edit. Scaling reports `type#id scaled by factor`; undo reports `type#id geometry restored`.
+
+`set <id> <attr> <value>` edits exactly one local attribute. Every shape accepts `fill`, `stroke` and `stroke-width`. Additional attributes are:
+
+| Shape | Editable attributes |
+|---|---|
+| rect | x, y, width, height |
+| circle | cx, cy, r |
+| ellipse | cx, cy, rx, ry |
+| line | x1, y1, x2, y2 |
+| text | x, y, text |
+| g | Common styles only |
+
+Unknown attributes, including `id`, aliases `w`/`h`, `transform` and `font-size`, are rejected. Numeric attributes require a nonempty finite number; sizes, radii and stroke width must be nonnegative, while coordinates may be negative. Styles and text accept empty strings, spaces, `#` and `in`; quote values containing spaces. The `in` parent clause belongs only to create. Group styles change only the group itself, preserving descendant attributes for SVG inheritance. Undo restores the exact previous value, including an absent style; removal is reported as `type#id attribute removed: attr`. A successful unchanged value still counts as an edit and clears redo. Invalid edits preserve state and history. For example:
+
+```text
+svg> set label text "My Diagram v2"
+text#label updated: text="My Diagram v2"
+svg> undo
+text#label updated: text="中文 # in"
+svg> set scene stroke-width 0
+g#scene updated: stroke-width=0
+svg> undo
+g#scene attribute removed: stroke-width
+```
+
+This example continues the first session above. Attribute feedback uses the same single-line escaping as queries; escaping does not change stored text or styles.
 
 For example, in an initialized session:
 
@@ -123,6 +149,6 @@ create g <id>
 
 Every create requires an explicit id. Duplicate ids, missing/non-group parents and invalid numeric parameters are rejected without changing the document. Required text and id tokens may contain `in`; only an unquoted trailing `in` after required parameters starts a parent clause. Optional fill/stroke equal to the literal `in` must be quoted. Empty text is allowed. Unknown types including `box` are rejected. Successful init replaces the document; failed init preserves it.
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 20 test files contain 314 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale commands and real creation/query/help/history sessions through both source and compiled entry points. Coverage includes subtree restoration, 2000-level geometry operations, overflow atomicity, exact numeric restoration, failed-history retries, IO locking, error recovery and input failure during asynchronous execution.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 22 test files contain 392 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set commands and real creation/query/help/history sessions through both source and compiled entry points. Coverage includes subtree restoration, 2000-level geometry operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, failed-history retries, IO locking, error recovery and input failure during asynchronous execution.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.

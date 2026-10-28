@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；基础编辑实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/ScaleCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口；Composite 几何移动/缩放已接入。4C.1 已实现属性准备接口和 SetAttributeCommand，CLI set 尚待 4C.2；重组及 SVG IO 仍按后续阶段实现。
+架构基线：2026-10-26，v1.1；基础编辑实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttributeCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set 已连接真实入口；Composite 几何移动/缩放、严格属性白名单与精确属性恢复已接入。重组及 SVG IO 仍按后续阶段实现。
 
 ## 架构方案
 
@@ -364,7 +364,11 @@ end note
 
 阶段 4B 一致性抽样（2026-10-28）：检查 DeleteCommand、GeometryCommand、MoveCommand、ScaleCommand、SvgDocument、Shape、ContainerShape、GeometryShape、GeometryChange、五种叶子与 EditorSession。领域及命令没有应用层、CLI、Node/文件系统 import；命令只依赖领域及 Command 层。字段私有、一类一文件，数值和拓扑返回只读快照；未新增命令名或图形名分派。坐标轴/尺寸角色判断是图形类声明的几何规则，不是按 tag 分派。Composite 的拓扑集中在文档，通过迭代聚合本地变更；与先前递归描述的具体调整已写入模式段及过程记录。set、重组与 IO 尚未实现，不提前计入验收。
 
+阶段 4C 一致性抽样（2026-10-28）：检查 SetAttributeCommand、AttributeChange、Shape、GeometryShape、TextShape、EditorSession 和 DocumentFormatter。领域按多态提供属性类型/准备接口，命令只 import 领域及 Command；应用层完成数值转换与摘要，历史保存只读反馈。未改 Parser、未增加类型名分派；几何属性沿用类声明的坐标轴/尺寸规则，公共样式与 text 各归所属抽象/具体类。私有字段通过受控快照修改，对外 getter/属性视图保持只读；g set 不遍历后代。沿用 Command、Composite、Factory/Registry 与 Facade，没有额外设计模式；set 的属性变更与几何聚合各有明确职责，不为文本修改复用几何缩放接口。
+
 ## 质量保证手段
+
+阶段 4C 本地证据：22 文件 392 项（保留原 314 项，领域/命令新增 31、会话新增 45、源码/编译入口新增 2），typecheck、pretest 构建、format:check、git diff --check 通过。覆盖六种类型完整白名单、原型名字/id/跨类型属性拒绝、有限非空数值与非负尺寸、属性准备不变更、缺省/空/none/零恢复、嵌套 g 样式不传播、中文/引号/反斜杠/控制字符显示、原实例/索引/拓扑保持、五轮混合历史恢复、错误保留双栈、无变化编辑清空 redo、IO 锁定与成功解锁。Windows PTY 编译入口回放中文文本、非法数值后 redo、缺省 fill 和零描边宽度恢复、init 重锁，Ctrl+D 退出 0。模块精确 SHA/远程 CI 以开发方案第 8 节为准。
 
 阶段 4B 质量证据：20 文件 314 项（保留原 235 项，新增 79 项），typecheck、pretest 构建、format:check、git diff --check 全部通过。delete 验证完整子树原位/原实例恢复、id 复用和恢复冲突后重试；move/scale 验证六种类型、双端点、2000 层容器、浮点精确恢复、文本/样式/描边宽度保持、末端溢出不产生部分变更、非法参数保留双栈、无变化成功编辑清空 redo，以及混合历史多轮回放。scale 另验证正有限倍数、有限下溢恢复和数值型扩展。源码/编译入口均回放三条新命令；Windows PTY 实际验证中文组操作、非法倍数后 redo、溢出后已有矩形保持原值、删除恢复、init 锁定及 EOF 退出 0。三个实现提交独立推送并通过各自 Windows/Linux CI，精确 SHA/链接见开发方案第 8 节。
 
@@ -384,7 +388,7 @@ end note
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
-- 扩展 set、重组命令及其失败状态不变性测试；保留已有 Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归。
+- 扩展重组命令及其失败状态不变性测试；保留已有 set、Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归。
 - 对每个新增编辑命令验证“执行 → undo → redo”，沿用已建立的 redo 清空、init 后禁止 undo 和错误命令不入栈回归；read/save/canvas 接入时扩展 IO 历史验收。
 - 用含缺失 id、嵌套 g、文本和非法文件的 SVG 做读入测试，验证自动补 id 警告和错误前缀。
 - 对保存结果做 XML 检查，再 read 回来比较画布、层级、属性和文本，验证 round-trip。

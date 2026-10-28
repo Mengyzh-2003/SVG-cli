@@ -98,6 +98,71 @@ describe.each([
     );
   });
 
+  it('edits attributes, preserves redo across errors and restores absent styles through EOF', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create text title 1 2 "My Diagram" in scene',
+        'set title text "My Diagram v2"',
+        'undo',
+        'set title text "unfinished',
+        'set title x ""',
+        'set title id renamed',
+        'help',
+        'redo',
+        'set scene fill #f5a623',
+        'show title',
+        'undo',
+        'show scene',
+        'redo',
+        'set title text "中文 # in \\"quoted\\" \\\\ path"',
+        'show title',
+        'set title text ""',
+        'undo',
+        'set title x -0.1',
+        'move scene 0.2 0.1',
+        'scale scene 0.1',
+        'undo',
+        'undo',
+        'show title',
+        'init 20 30',
+        'undo',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'text#title updated: text="My Diagram v2"\nsvg> text#title updated: text="My Diagram"',
+    );
+    expect(result.stdout).toContain(
+      'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
+    );
+    expect(result.stdout).toContain(
+      'set <id> <attr> <value>\nsvg> text#title updated: text="My Diagram v2"',
+    );
+    expect(result.stdout).toContain(
+      'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
+    );
+    expect(result.stdout).toContain(
+      'text#title updated: text="中文 # in \\"quoted\\" \\\\ path"',
+    );
+    expect(result.stdout).toContain(
+      'text#title updated: text=""\nsvg> text#title updated: text="中文 # in \\"quoted\\" \\\\ path"',
+    );
+    expect(result.stdout).toContain(
+      'text#title  parent=g#scene\n  x=-0.1\n  y=2\n  text="中文 # in \\"quoted\\" \\\\ path"',
+    );
+    expect(result.stdout).toContain(
+      'canvas 20x30 created\nsvg> error: undo not allowed after io command\nsvg> ',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(4);
+  });
+
   it('deletes and restores a complete subtree through the real input loop', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -191,7 +256,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',

@@ -44,6 +44,16 @@ export class DocumentFormatter {
     ];
   }
 
+  attributeUpdate(
+    shape: Shape,
+    name: string,
+    value: number | string | undefined,
+  ): string {
+    return value === undefined
+      ? `${this.#identity(shape)} attribute removed: ${this.#value(name)}`
+      : `${this.#identity(shape)} updated: ${this.#attribute(name, value)}`;
+  }
+
   #pushChildren(
     pending: TreeEntry[],
     children: readonly Shape[],
@@ -63,10 +73,13 @@ export class DocumentFormatter {
   }
 
   #attributes(shape: Shape): string[] {
-    return Object.entries(shape.attributes).map(
-      ([key, value]) =>
-        `${this.#value(key)}=${this.#value(value, key === 'text')}`,
+    return Object.entries(shape.attributes).map(([key, value]) =>
+      this.#attribute(key, value),
     );
+  }
+
+  #attribute(name: string, value: number | string): string {
+    return `${this.#value(name)}=${this.#value(value, name === 'text')}`;
   }
 
   #value(value: number | string, quote = false): string {
