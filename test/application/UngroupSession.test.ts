@@ -187,17 +187,19 @@ describe('ungroup sessions', () => {
     },
   );
 
-  it('escapes control characters supplied through the structured application API', () => {
+  it('escapes control characters supplied through the structured application API', async () => {
     const session = fixture();
     const id = 'line\nbreak';
     expect(
-      session.execute({
-        name: 'create',
-        args: ['g', id, 'in', 'scene'].map((value) => ({
-          value,
-          quoted: false,
-        })),
-      }).status,
+      (
+        await session.execute({
+          name: 'create',
+          args: ['g', id, 'in', 'scene'].map((value) => ({
+            value,
+            quoted: false,
+          })),
+        })
+      ).status,
     ).toBe('success');
     expect(
       session.execute({

@@ -16,16 +16,30 @@ import { ReorderCommand } from '../commands/ReorderCommand.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
+import { SvgFileStore } from '../io/SvgFileStore.js';
+import { SvgFileError } from '../io/SvgFileError.js';
+import { SvgReader } from '../io/SvgReader.js';
+import { SvgWriter } from '../io/SvgWriter.js';
 
 export class EditorSession implements CommandExecutor {
   readonly #dispatcher = new CommandDispatcher();
   readonly #factory: ShapeFactory;
   readonly #formatter = new DocumentFormatter();
   readonly #history = new HistoryManager();
+  readonly #files: Pick<SvgFileStore, 'read' | 'write'>;
+  readonly #reader: SvgReader;
+  readonly #writer = new SvgWriter();
   #document: SvgDocument | null = null;
+  #filePath: string | null = null;
+  #pending = false;
 
-  constructor(factory = new ShapeFactory()) {
+  constructor(
+    factory = new ShapeFactory(),
+    files: Pick<SvgFileStore, 'read' | 'write'> = new SvgFileStore(),
+  ) {
     this.#factory = factory;
+    this.#files = files;
+    this.#reader = new SvgReader(factory);
     this.#dispatcher.register(
       'init',
       (request) => this.#initialize(request),
@@ -106,20 +120,98 @@ export class EditorSession implements CommandExecutor {
       (request) => this.#reorder(request, 'start', 'back', 'sent to back'),
       () => ['back <id>'],
     );
+    this.#dispatcher.register(
+      'read',
+      (request) => this.#read(request),
+      () => ['read <file.svg>'],
+    );
+    this.#dispatcher.register(
+      'save',
+      (request) => this.#save(request),
+      () => ['save [file.svg]'],
+    );
   }
 
   get document(): SvgDocument | null {
     return this.#document;
   }
 
-  execute(request: CommandRequest): CommandResult {
-    try {
-      return this.#dispatcher.dispatch(request);
-    } catch (error) {
+  get filePath(): string | null {
+    return this.#filePath;
+  }
+
+  execute(request: CommandRequest): CommandResult | Promise<CommandResult> {
+    if (this.#pending) {
       return {
         status: 'error',
-        message: error instanceof Error ? error.message : 'unexpected error',
+        message: 'command in progress. wait for completion',
       };
+    }
+    try {
+      const result = this.#dispatcher.dispatch(request);
+      if (result instanceof Promise) {
+        this.#pending = true;
+        return result
+          .catch((error: unknown) => this.#error(error))
+          .finally(() => {
+            this.#pending = false;
+          });
+      }
+      return result;
+    } catch (error) {
+      return this.#error(error);
+    }
+  }
+
+  #error(error: unknown): CommandResult {
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'unexpected error',
+    };
+  }
+
+  async #read(request: CommandRequest): Promise<CommandResult> {
+    if (request.args.length !== 1 || request.args[0]!.value === '') {
+      throw new Error('usage: read <file.svg>');
+    }
+    const path = request.args[0]!.value;
+    try {
+      const { document, warnings } = this.#reader.read(
+        await this.#files.read(path),
+      );
+      this.#document = document;
+      this.#filePath = path;
+      this.#history.resetAfterIo();
+      return {
+        status: 'success',
+        lines: [`read ${path} (${document.size} elements)`],
+        warnings,
+      };
+    } catch (error) {
+      throw new SvgFileError('read', path, error);
+    }
+  }
+
+  async #save(request: CommandRequest): Promise<CommandResult> {
+    const document = this.#requireDocument();
+    if (request.args.length > 1 || request.args[0]?.value === '') {
+      throw new Error('usage: save [file.svg]');
+    }
+    const path = request.args[0]?.value ?? this.#filePath;
+    if (path === null) {
+      throw new Error("no file path. use 'save <file.svg>' first");
+    }
+    try {
+      const source = this.#writer.write(document);
+      await this.#files.write(path, source);
+      this.#filePath = path;
+      this.#history.resetAfterIo();
+      return {
+        status: 'success',
+        lines: [`saved to ${path} (${document.size} elements)`],
+      };
+    } catch (error) {
+      throw new SvgFileError('write', path, error);
     }
   }
 
@@ -433,6 +525,7 @@ export class EditorSession implements CommandExecutor {
     try {
       const candidate = new SvgDocument(width, height);
       this.#document = candidate;
+      this.#filePath = null;
       this.#history.resetAfterIo();
       return {
         status: 'success',

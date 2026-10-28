@@ -179,7 +179,7 @@ describe('reorder history integration', () => {
     expect(ids(session, 'scene')).toEqual(['a', 'c', 'b']);
   });
 
-  it('escapes control characters in identities without changing stored values', () => {
+  it('escapes control characters in identities without changing stored values', async () => {
     const session = new EditorSession();
     executeLine(session, 'init');
     const parent = 'scene\n中文';
@@ -189,8 +189,10 @@ describe('reorder history integration', () => {
         name,
         args: values.map((value) => ({ value, quoted: value !== 'in' })),
       });
-    expect(request('create', ['g', parent]).status).toBe('success');
-    expect(request('create', ['g', id, 'in', parent]).status).toBe('success');
+    expect((await request('create', ['g', parent])).status).toBe('success');
+    expect((await request('create', ['g', id, 'in', parent])).status).toBe(
+      'success',
+    );
     expect(request('front', [id])).toEqual({
       status: 'success',
       lines: [`g#${JSON.stringify(id)} brought to front`],

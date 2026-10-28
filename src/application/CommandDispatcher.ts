@@ -35,7 +35,7 @@ export class CommandDispatcher {
     );
   }
 
-  dispatch(request: CommandRequest): CommandResult {
+  dispatch(request: CommandRequest): CommandResult | Promise<CommandResult> {
     const registration = this.#handlers.get(request.name);
     if (registration === undefined) {
       return { status: 'error', message: `unknown command: ${request.name}` };

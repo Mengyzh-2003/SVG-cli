@@ -32,13 +32,15 @@ describe('registered help', () => {
         'ungroup <gid>',
         'front <id>',
         'back <id>',
+        'read <file.svg>',
+        'save [file.svg]',
       ],
     });
     expect(session.document).toBeNull();
     // Unimplemented commands must not be advertised as executable.
-    expect(executeLine(session, 'save')).toEqual({
+    expect(executeLine(session, 'canvas')).toEqual({
       status: 'error',
-      message: 'unknown command: save',
+      message: 'unknown command: canvas',
     });
   });
 

@@ -339,7 +339,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -452,7 +452,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',

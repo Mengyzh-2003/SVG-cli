@@ -3,6 +3,28 @@ import { CommandDispatcher } from '../../src/application/CommandDispatcher.js';
 import type { CommandResult } from '../../src/application/CommandResult.js';
 
 describe('CommandDispatcher', () => {
+  it('forwards asynchronous handler results and rejections unchanged', async () => {
+    const dispatcher = new CommandDispatcher();
+    const result: CommandResult = { status: 'success', lines: ['loaded'] };
+    dispatcher.register(
+      'read',
+      async () => result,
+      () => ['read <path>'],
+    );
+    dispatcher.register(
+      'fail',
+      async () => {
+        throw new Error('failed');
+      },
+      () => ['fail'],
+    );
+    await expect(dispatcher.dispatch({ name: 'read', args: [] })).resolves.toBe(
+      result,
+    );
+    await expect(
+      dispatcher.dispatch({ name: 'fail', args: [] }),
+    ).rejects.toThrow('failed');
+  });
   it('enumerates current registration syntax without invoking command handlers', () => {
     const dispatcher = new CommandDispatcher();
     const handler = vi.fn((): CommandResult => ({
