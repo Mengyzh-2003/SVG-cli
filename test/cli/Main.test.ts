@@ -6,6 +6,28 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('deletes and restores a complete subtree through the real input loop', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input:
+        'init\ncreate g scene\ncreate text t 1 2 "中文" in scene\ndelete scene\nshow t\nundo\nshow t\nredo\ntree\n',
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'g#scene deleted\nsvg> error: no such shape: t',
+    );
+    expect(result.stdout).toContain(
+      'g#scene restored into svg\nsvg> text#t  parent=g#scene',
+    );
+    expect(result.stdout).toContain(
+      'g#scene deleted\nsvg> svg (800x600)\nsvg> ',
+    );
+  });
+
   it('runs history, IO locking, branch replacement and error recovery through EOF', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -77,7 +99,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',

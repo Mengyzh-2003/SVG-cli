@@ -5,6 +5,7 @@ import { CommandDispatcher } from './CommandDispatcher.js';
 import { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
+import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
 
@@ -51,6 +52,11 @@ export class EditorSession implements CommandExecutor {
       'redo',
       (request) => this.#redo(request),
       () => ['redo'],
+    );
+    this.#dispatcher.register(
+      'delete',
+      (request) => this.#delete(request),
+      () => ['delete <id>'],
     );
   }
 
@@ -148,6 +154,25 @@ export class EditorSession implements CommandExecutor {
         redoLines: [
           `${summary} created${parent === null ? '' : ` in ${parent.type}#${parent.id}`}`,
         ],
+      }),
+    };
+  }
+
+  #delete(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 1 || request.args[0]!.value === '') {
+      throw new Error('usage: delete <id>');
+    }
+    const shape = document.require(request.args[0]!.value);
+    const parent = document.parentOf(shape.id);
+    const summary = `${shape.type}#${shape.id}`;
+    return {
+      status: 'success',
+      lines: this.#history.execute(new DeleteCommand(document, shape.id), {
+        undoLines: [
+          `${summary} restored into ${parent === null ? 'svg' : `${parent.type}#${parent.id}`}`,
+        ],
+        redoLines: [`${summary} deleted`],
       }),
     };
   }

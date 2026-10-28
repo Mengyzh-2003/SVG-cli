@@ -85,6 +85,8 @@ g#example created
 
 This history example continues an initialized session such as the one above. Future read/save/canvas operations will share the IO reset rule when implemented.
 
+Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
+
 `tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
 
 `help` works before `init` and lists the currently registered commands, including the creation syntax for each CLI-capable shape. It accepts no arguments. The command dispatcher and shape factory supply this information from their existing registries; commands scheduled for later stages are added to help when implemented.

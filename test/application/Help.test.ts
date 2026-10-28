@@ -23,6 +23,7 @@ describe('registered help', () => {
         'help',
         'undo',
         'redo',
+        'delete <id>',
       ],
     });
     expect(session.document).toBeNull();

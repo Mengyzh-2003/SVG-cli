@@ -43,6 +43,8 @@
 
 阶段 3C 的查询实现：具体图形覆写 `Shape.geometry`，基类 `attributes` 合并显式公共样式，返回冻结的属性快照；GroupShape 沿用空几何视图。`DocumentFormatter` 只依赖领域抽象，迭代读取文档关系并生成 tree/show；不按 type/tag 判断具体几何。两种查询使用规范属性名，show 从 `parentOf` 读取真实父节点，根级显示 parent=svg。文本与有特殊字符的值转义为单行，原属性不变。它是应用层格式化职责，不新增 Strategy 模式。
 
+阶段 4B.1：DeleteCommand 通过 SvgDocument.remove 摘除子树，保存冻结拓扑、原父 id 和原同级索引；undo 使用 insertSubtree 完整校验后恢复原实例。EditorSession 生成删除/恢复摘要，HistoryManager 将整棵子树作为一个历史单元；根级恢复显示 restored into svg，组内显示 restored into g#id。失败恢复不推进命令状态，修复冲突后可重试。
+
 帮助同源：`CommandDispatcher` 的注册项同时保存处理器与语法回调；create 的回调枚举 `ShapeFactory` 同一类型表的 CLI 语法，内置语法直接由已有 schema 生成。回调在查询时求值，后注册的 CLI 类型也能显示，不执行参数解析或构造。扩展注册可同时提供 CLI parser 与语法；无 CLI parser 的内部类型不显示创建帮助。help 未初始化可用，只列当前已接入命令，后续阶段随命令注册补齐最终完整清单。
 
 目标目录结构：

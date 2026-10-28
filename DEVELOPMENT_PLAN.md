@@ -115,6 +115,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 4B：实现 DeleteCommand、MoveCommand、ScaleCommand；删除保留整棵子树、原父节点和原同级位置；移动缩放保存旧几何状态，避免仅用逆运算导致浮点误差积累。
 
+4B 内部提交点：4B.1 delete 子树删除与恢复；4B.2 受控几何快照、move 和容器原子移动；4B.3 scale 与溢出/精确恢复。每个模块本地验收、独立推送并核实对应 SHA 的 Windows/Linux CI 后，再开始下一模块。
+
 4C：实现 SetAttributeCommand 和严格的类型属性白名单，恢复时区分“属性不存在”与“显式值”。
 
 验收：每条编辑均覆盖执行 → undo → redo；容器与叶子走统一接口；撤销后新成功编辑清空 redo，查询和失败编辑保留 redo。scale 非正数、非有限数和结果溢出不改状态；g 的 fill/stroke/stroke-width 保持容器自身属性；scale 只乘几何属性，不改 stroke-width。
@@ -256,7 +258,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 等待阶段 4B 任务 |
-| 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
+| 4B delete/move/scale | 进行中 | 4B.1 delete 本地验收中；按三个小模块分别提交 | 无 | 核实 delete 推送/CI 后进入 move |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
