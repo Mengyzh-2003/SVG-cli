@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4B 已完成，下一阶段为 4C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C 已完成，下一阶段为 5A。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -187,10 +187,11 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
 | delete/move 反馈 | delete 撤销显示 restored into svg 或 类型#父id；move 叶子显示本地锚点 moved to / moved back to（line 使用首端点），容器显示 moved by / moved back by。反馈只描述结果，撤销实际恢复保存值，不使用反馈中的逆增量计算 |
 | scale 反馈与下溢 | 执行/重做显示 类型#id scaled by factor，撤销显示 类型#id geometry restored；有限结果允许 IEEE 754 下溢为零，undo 恢复原值，溢出为非有限值则整体拒绝 |
+| set 反馈与恢复 | 执行/重做显示 类型#id updated: 属性=值；撤销恢复原值，原属性缺失时显示 类型#id attribute removed: 属性。文本始终双引号，身份/属性/值复用查询转义；缺省与空字符串、none、零均不同，不补渲染默认值 |
 | 默认保存路径 | read 成功记录读入路径；save 显式路径成功后也作为后续默认路径；init 清空路径；init 后首次无参 save 报 error: no file path. use 'save <file.svg>' first |
 | 数值域 | 接受有限浮点与负坐标；尺寸、半径、stroke-width 不得为负，画布宽高及 scale factor 必须为正；参数过多、缺失和非数值一律拒绝 |
 | init 可选尺寸 | init 默认 800×600；只给 w 时 h 取 600；canvas 修改必须同时给 w/h，无参只查询 |
-| 成功但没有变化的编辑 | 若参数合法，按一次成功编辑记录，包括 move 0 0、scale 1、已在最前的 front；因此会清空 redo 并解除 IO 锁定 |
+| 成功但没有变化的编辑 | 若参数合法，按一次成功编辑记录，包括 move 0 0、scale 1、set 原值、已在最前的 front；因此会清空 redo 并解除 IO 锁定 |
 | 外部 SVG 的 transform、附加属性和未知元素 | CLI set 白名单不等于读入丢弃属性。保留六种支持节点上的附加普通属性（含 transform、字体属性）及根 viewBox；不展开 transform，move/scale 作用于节点本地几何。未知图形标签明确拒绝，XML 声明/注释跳过；不静默删掉未知图形。阶段 6 为此添加 fixture，暂不承诺完整 SVG/CSS/引用系统 |
 | 重组带样式或 transform 的 g | 按规定重建树关系，不额外计算世界坐标或补偿继承样式；外部变换下重组可能改变渲染，不能宣称保持视觉不变。必要时在阶段 6 记录更严格的支持边界 |
 | canvas 与 viewBox | init 默认 viewBox 为 0 0 w h；read 保留原 viewBox；canvas 修改尺寸时同步设为 0 0 w h，查询不改动 |
@@ -263,8 +264,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
-| 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 下一阶段 4C set |
-| 4C set | 待验收 | 4C.1 `f1f069b` 独立推送/核实，[CI 40629439341](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40629439341) 双平台通过；4C.2 本地 392 项及交互验收通过，待推送/CI | 无 | 核实 4C.2，补阶段验收记录 |
+| 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
+| 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
@@ -378,3 +379,15 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **模式与架构调整**：Command 统一入历史，Composite 由文档迭代遍历唯一拓扑与 Shape 多态本地准备协作；GeometryShape 私有冻结数值封装，GeometryChange 保存精确状态；GeometryCommand 用模板方法复用 move/scale 生命周期。Facade 只做参数/摘要/历史编排，工厂注册点保持不变。抽查新命令、文档、五种叶子与基类，无反向依赖或新增按名字分派，一类一文件。
 - **发现与纠正**：旧只读几何类缺少受控修改入口，逐个改后代无法保证后代溢出时状态不变；已改为全子树准备后统一应用并保存前后值。原“容器递归执行”的实现描述与唯一关系来源约束衔接不足，已明确文档层迭代协调，不在 GroupShape 复制 children；证据与修正写入 doc/README.md 过程记录。根 README 同步当前命令、可回放示例与数值边界。
 - **记录提交与下一步**：本阶段记录独立作文档提交，避免自引用 SHA；其自身 push/CI 在本次最终报告核实。无阻塞。下一阶段 4C：SetAttributeCommand、按类型严格属性白名单、属性缺省与显式值的精确恢复、g 样式不覆写子节点及失败保持文档/历史。本次未实现 set、重组、IO、box，未创建 final tag。
+
+### 阶段 4C 验收记录（2026-10-28）
+
+- **状态与开发顺序**：完成。先实现/验收 4C.1，独立推送并核实其 Windows/Linux CI 后，再开始 4C.2；两个实现提交均已推送且精确 SHA 的 CI 成功。本验收记录另作小型文档提交，其自身推送与 CI 在阶段报告核实，避免 SHA 自引用。
+- **4C.1 领域与命令**：`f1f069b9ab39fa5e9d715f327290b21775eb7052`；[CI 40629439341](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40629439341) Windows/Linux completed/success。Shape 提供公共样式 attributeType/prepareSet，GeometryShape 沿用坐标轴/尺寸声明，TextShape 补充 text；AttributeChange 封装已校验前后值，SetAttributeCommand 首次执行准备并缓存，undo/redo 恢复精确状态。21 文件 345 项通过，其中新增直接领域/命令测试 31 项，包含六种类型完整属性白名单、原型名字拒绝、准备不变更、非法值、缺省/显式属性恢复、本地容器样式、扩展和失败重试。
+- **4C.2 CLI 与历史**：`f65f8ff573fe1c15c4a5365ac123b782ab5b2632`；[CI 40629995891](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40629995891) Windows/Linux completed/success。EditorSession 注册 set 和显式帮助语法，按多态属性类型转换 number/string，沿用有限非空数值校验。SetAttributeCommand 经 HistoryManager 执行，摘要由应用层 DocumentFormatter 生成；查询与编辑复用转义。撤销缺省样式明确显示 attribute removed，不伪造 black/none。不存在额外类型名分派，Parser 未增加语义职责。
+- **远程核实**：每个模块推送后使用 ls-remote 核实 origin/main 与当时本地 HEAD 精确一致，再核对对应 SHA 的 CI completed/success；前一模块远程验收通过后才进入下一模块。
+- **本地质量门槛**：Windows、Node.js 24.15.0 / npm 11.12.1；typecheck、npm test（含 pretest 构建）、format:check、git diff --check 均通过。最终 22 文件 392 项，保留原 314 项；领域/命令新增 31、应用会话新增 45、源码/编译入口新增 2。帮助既有断言同步新增 set，没有删除旧回归。
+- **行为验收**：覆盖六种类型严格白名单、id/跨类型/别名/原型属性拒绝、有限非空数值和非负尺寸/半径/描边宽度、空文本与空样式、中文/引号/反斜杠/控制字符输出、容器样式不写后代、缺省/空/none/零的恢复、原实例/树/索引保持、失败保留双栈、成功原值编辑清空 redo、查询保留 redo、IO 锁定/新成功编辑解锁。set/move/scale/delete 混合历史五轮完整撤销重做后状态一致；数值扩展不改应用分派。
+- **真实入口与手工证据**：源码 tsx 和构建入口均回放文本修改/恢复、词法/数值/未知属性失败后 redo、组样式与缺省恢复、转义/空文本、move/scale 混合历史、init 重锁及 EOF。另在 Windows PTY 运行 node dist/main.js，验证中文文本、set x 空字符串错误后 redo、组 fill 不改文本节点属性、撤销组 fill 重新缺失、零 stroke-width 恢复与重做、init 锁定；Ctrl+D 退出码 0。
+- **文档与实际问题**：根 README 补齐 set 白名单、运行示例与恢复语义；架构同步属性准备契约和已实现命令。现有 readonly 样式/文本缺少受控入口、不能据 attributes 是否存在决定白名单的问题及修正写入过程记录；收尾发现模式正文/图中实现状态落后于源码，也已核对并更新。常规进度仅记在本节。
+- **模式与范围**：Command 继续作为单次编辑历史单元，Composite 保持统一 Shape 接口与文档唯一拓扑，Factory/Registry 和 EditorSession Facade 延用现有职责；未新增模式或依赖反转。无阻塞。下一阶段 5A 实现 GroupCommand/AddToCommand，验证跨父归属/顺序、环拒绝、整条命令原子性和精确 undo/redo；继续按模块推送。本次未开始 5A、未实现 SVG IO 或 box，未创建 final tag。

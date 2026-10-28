@@ -119,12 +119,12 @@ factory --> shapes : implementations of abstractions
 io --> document
 
 note right of dispatcher
-允许的按名字分派点 1（待重构）：
+已实现的按名字分派点 1：
 命令名 -> Handler
 end note
 
 note right of factory
-允许的按名字分派点 2（待重构）：
+已实现的按名字分派点 2：
 类型名 -> Shape
 后续可接 ShapeProvider 插件
 end note
@@ -135,7 +135,7 @@ end note
 
 #### Command：编辑行为的统一撤销边界
 
-`Command` 的实际接口为 `execute(): void`、`undo(): void`；文档、目标图形等依赖在构造命令时注入，不再传入 context，也不向命令接口加入终端摘要。redo 对同一命令对象再次调用 execute。`CreateCommand` 已实现这一接口；后续 `DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand`、`GroupCommand`、`UngroupCommand`、`AddToCommand`、`ReorderCommand` 继续沿用。
+`Command` 的实际接口为 `execute(): void`、`undo(): void`；文档、目标图形等依赖在构造命令时注入，不再传入 context，也不向命令接口加入终端摘要。redo 对同一命令对象再次调用 execute。`CreateCommand`、`DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand` 已实现这一接口；后续 `GroupCommand`、`UngroupCommand`、`AddToCommand`、`ReorderCommand` 继续沿用。
 
 成功摘要由应用层处理器依据已验证参数和目标对象生成，并转换为 `CommandResult`；CLI 只负责统一呈现。阶段 4A 的 HistoryManager 保存命令及应用层提供的撤销/重做反馈，操作成功后才返回相应反馈；不让 commands 反向依赖应用层结果、终端或历史。领域恢复由命令负责，历史层不按命令名判断摘要或操作。
 
@@ -327,6 +327,12 @@ end note
 - **发现**：现有 Shape 样式和 TextShape 文本仍为 readonly 字段，没有受控 set 入口；attributes 仅包含已存在值，若据此判断可编辑属性，会错误拒绝缺省的 fill/stroke/stroke-width。把缺省样式恢复成 black/none 也会改变后续 SVG 继承语义。
 - **确认**：逐项对照需求 4.1 白名单与现有 getter/attributes，使用缺省样式、空字符串、none、零描边宽度及嵌套容器构造恢复测试；检查原实现字段声明，确认需要补充受控修改能力，而非开放字段赋值。
 - **纠正**：增加与属性是否存在无关的 attributeType 白名单和 prepareSet；所有校验在变更前完成，AttributeChange 捕获前后值，SetAttributeCommand 复用同一快照重做。恢复 undefined 后 attributes 省略该键，g 只修改自身；公开 getter/视图仍只读。命令仅依赖领域及 Command，不为属性名字新增命令/图形类型分派，也不把样式/文本修改强行并入几何运算。
+
+### 2026-10-28：基础编辑完成后的架构状态交叉核对
+
+- **发现**：架构首页已更新基础编辑进度，但 Command 模式正文仍仅写 CreateCommand 已实现，把 Delete/Move/Scale/SetAttributeCommand 列为后续；组件图仍把两个名字注册点标为待重构，正文与实际实现状态不一致。
+- **确认**：逐项对照 commands 下的接口实现、EditorSession 注册项与 CommandDispatcher/ShapeFactory 的真实注册表，确认这是遗留文档状态，实际已通过的基础编辑和两个分派点不需要重新实现。
+- **纠正**：正文明确已实现的五个编辑命令，图中两个分派点改为已实现；仍将 Group/Ungroup/AddTo/Reorder 与 IO 保留为后续范围。阶段进度和提交/CI 证据集中在开发方案第 8 节，避免把历史记录当作当前状态。
 
 ## 一致性自查
 
