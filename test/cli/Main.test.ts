@@ -6,6 +6,64 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('reorders siblings and retains redo across lexical and semantic failures', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create g tail',
+        'create rect a 1 2 3 4 in scene',
+        'create circle b 2 3 4 in scene',
+        'create g branch in scene',
+        'create text label 5 6 "中文 # in" in branch',
+        'create ellipse c 1 2 3 4 in scene',
+        'front a',
+        'back c',
+        'front branch',
+        'undo',
+        'front missing',
+        'back "unfinished',
+        'front branch extra',
+        'redo',
+        'show label',
+        '# ignored',
+        'front scene',
+        'tree',
+        'undo',
+        'tree',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('rect#a brought to front');
+    expect(result.stdout).toContain('ellipse#c sent to back');
+    expect(result.stdout.match(/g#branch brought to front/g)).toHaveLength(2);
+    expect(result.stdout).toContain(
+      'g#branch sibling order restored in g#scene',
+    );
+    expect(result.stdout).toContain(
+      'text#label  parent=g#branch\n  x=5\n  y=6\n  text="中文 # in"',
+    );
+    expect(result.stdout).toContain(
+      'svg (800x600)\n├── g#tail\n└── g#scene\n    ├── ellipse#c cx=1 cy=2 rx=3 ry=4\n    ├── circle#b cx=2 cy=3 r=4\n    ├── rect#a x=1 y=2 width=3 height=4\n    └── g#branch\n        └── text#label x=5 y=6 text="中文 # in"',
+    );
+    expect(result.stdout).toContain(
+      'g#scene sibling order restored in svg\nsvg> svg (800x600)\n├── g#scene',
+    );
+    for (const message of [
+      'no such shape: missing',
+      'unterminated double quote',
+      'usage: front <id>',
+    ]) {
+      expect(result.stdout).toContain(`error: ${message}\nsvg> `);
+    }
+    expect(result.stdout.match(/error: /g)).toHaveLength(3);
+  });
+
   it('ungroups nested containers in place and retains redo across rejected input', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -281,7 +339,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -394,7 +452,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',

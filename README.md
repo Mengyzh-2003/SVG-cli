@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5B add `group`, `addto` and `ungroup`; sibling reordering and file operations follow next. `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`; SVG file operations follow next. `box` is outside the current project scope.
 
 ## Requirements
 
@@ -70,7 +70,7 @@ The parser preserves argument order and whether each argument was quoted. It for
 
 `ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
 
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion, subtree removal/restoration and topology transitions preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `delete <id>`, `move <id> <dx> <dy>`, `scale <id> <factor>`, `set <id> <attr> <value>`, `group <newGid> <id1> [id2 ...]`, `addto <gid> <id>`, `ungroup <gid>`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
+`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion, subtree removal/restoration and topology transitions preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `delete <id>`, `move <id> <dx> <dy>`, `scale <id> <factor>`, `set <id> <attr> <value>`, `group <newGid> <id1> [id2 ...]`, `addto <gid> <id>`, `ungroup <gid>`, `front <id>`, `back <id>`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
 
 Each successful create is one undo unit. `undo` removes that shape; `redo` restores the same instance, attributes, parent and sibling position. A new successful edit after undo clears the redo branch. Queries, malformed input and failed commands preserve history. Successful `init` clears both stacks and makes both undo and redo report `undo not allowed after io command` until the next successful edit; failed init preserves the document and history. Ordinary empty stacks report `nothing to undo` or `nothing to redo`. Both history commands accept no arguments and require an initialized document.
 
@@ -170,6 +170,16 @@ svg> undo
 g#branch restored with 1 children
 ```
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 28 test files contain 498 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup commands and real creation/query/help/history sessions through both source and compiled entry points. Coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, sibling ordering, direct and indirect cycle rejection, stale-topology failure and retry, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution.
+`front <id>` moves a shape or complete group to the end of its current sibling list (drawn last, visually in front). `back <id>` moves it to the beginning (drawn first, behind siblings). Both work at the SVG root and inside groups, preserving parent, subtree and local attributes. Each operation is one undo unit; undo restores the original sibling position and redo restores the saved result. Already-at-edge and sole-sibling operations still count as successful edits and clear redo. Invalid arguments or a missing id preserve state and history. For example, after creating two children in the same group:
+
+```text
+front start
+back label
+undo
+redo
+tree
+```
+
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 30 test files contain 554 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands and real creation/query/help/history sessions through both source and compiled entry points. Coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.

@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；实现更新至 5B：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/UngroupCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。front/back 及 SVG IO 仍按后续阶段实现。
+架构基线：2026-10-26，v1.1；实现更新至 5C：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup/front/back 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。SVG IO 仍按后续阶段实现；5C 的远程验收状态见开发方案第 8 节。
 
 ## 架构方案
 
@@ -135,7 +135,7 @@ end note
 
 #### Command：编辑行为的统一撤销边界
 
-`Command` 的实际接口为 `execute(): void`、`undo(): void`；文档、目标图形等依赖在构造命令时注入，不再传入 context，也不向命令接口加入终端摘要。redo 对同一命令对象再次调用 execute。`CreateCommand`、`DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand`、`GroupCommand`、`AddToCommand`、`UngroupCommand` 已实现这一接口；后续 `ReorderCommand` 继续沿用。
+`Command` 的实际接口为 `execute(): void`、`undo(): void`；文档、目标图形等依赖在构造命令时注入，不再传入 context，也不向命令接口加入终端摘要。redo 对同一命令对象再次调用 execute。`CreateCommand`、`DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand`、`GroupCommand`、`AddToCommand`、`UngroupCommand`、`ReorderCommand` 已实现这一接口。
 
 成功摘要由应用层处理器依据已验证参数和目标对象生成，并转换为 `CommandResult`；CLI 只负责统一呈现。阶段 4A 的 HistoryManager 保存命令及应用层提供的撤销/重做反馈，操作成功后才返回相应反馈；不让 commands 反向依赖应用层结果、终端或历史。领域恢复由命令负责，历史层不按命令名判断摘要或操作。
 
@@ -155,7 +155,9 @@ end note
 
 5B 的 `SvgDocument.prepareUngroup` 同样返回 TreeChange，将嵌套组的直接孩子按原顺序替换组所在同级位置；更深子树保持原结构。ContainerShape 的 `canUngroup` 默认 false，普通 GroupShape 显式覆写为 true；按能力校验后检查顶层限制，不根据 type 名判断或在领域引用具体 GroupShape。空嵌套组可以解散；UngroupCommand 保存同一变更，undo 恢复原组实例、属性、父关系和位置，redo 重用保存结果。所有本地属性保持原值，不补偿移除组造成的继承变化；冲突失败不写入且可重试。应用层按直接孩子数生成 `类型#id ungrouped; N children promoted into 类型#原父`，undo 为 `类型#id restored with N children`，身份转义与查询保持一致。
 
-`group`、`addto`、`ungroup` 改变树关系；move/scale 通过多态作用于子树。g 的 set 修改容器自身样式，保留 SVG 继承语义，不覆盖后代显式样式。普通 g 只有在嵌套时允许 ungroup，顶层 g 必须拒绝；未来插件的内部复合图形可通过容器能力契约拒绝解散。
+5C 的 `SvgDocument.prepareReorder(id, position)` 返回 TreeChange，`front` 对应 end，`back` 对应 start。只调整原父的同级序列（含 svg 根），目标记录同时参与对象身份校验；不摘除子树、不改变 parent、属性或后代顺序。ReorderCommand 缓存前后拓扑，undo 精确恢复位置，redo 不重新计算；边界位置与唯一同级仍作为一次成功编辑并清空 redo。应用层显式登记两个命令并注入方向、语法和反馈，共用处理器，不读取命令名再次分派。成功/重做为 `类型#id brought to front` / `sent to back`，撤销为 `类型#id sibling order restored in svg` 或实际父身份；反馈由应用层生成，HistoryManager 保存。
+
+`group`、`addto`、`ungroup` 改变树关系；front/back 改变同级绘制顺序；move/scale 通过多态作用于子树。g 的 set 修改容器自身样式，保留 SVG 继承语义，不覆盖后代显式样式。普通 g 只有在嵌套时允许 ungroup，顶层 g 必须拒绝；未来插件的内部复合图形可通过容器能力契约拒绝解散。
 
 #### Factory / Registry：隔离类型创建与扩展
 
@@ -362,6 +364,12 @@ end note
 - **确认**：测试失败于 executeLine 的 expected command，尚未调用 EditorSession；检查 CommandParser 确认其按既有契约返回 expected a single input line，且只解释引号与反斜杠转义，不把字面量反斜杠 n 转换为换行。放宽 Parser 会破坏既有边界。
 - **纠正**：普通 in、# 与带空格中文 id 继续走 Parser；换行 id 改为通过结构化 CommandRequest 创建和解组，断言成功/撤销反馈转义为单行且存储值保持原样。真实 CLI 继续覆盖未闭合引号失败后 redo，不增加多行输入或新的转义语法。
 
+### 2026-10-28：排序回归测试复用既有属性契约
+
+- **发现**：新生成的 ReorderCommand 测试为验证“撤销排序不覆盖后来属性修改”，误调用了不存在的 prepareSetAttribute，和现有 Shape 契约不一致。
+- **确认**：首次类型检查报告 TS2339；24 项专项测试中对应根级/嵌套两项均在调用该方法时失败，其余 22 项通过。核对 Shape 与 SetAttributeCommand，实际受控属性入口为 prepareSet；失败尚未进入排序撤销逻辑。
+- **纠正**：测试改用既有 prepareSet('fill', 'blue').apply()，不新增重复属性接口。两项测试通过，且验证 undo 只恢复拓扑、不覆盖后续样式或无关深层子树变动；完整回归通过。此项是测试契约错误，不把它描述成生产排序缺陷。
+
 ## 一致性自查
 
 阶段 2 实际源码抽样（2026-10-27）：
@@ -430,7 +438,7 @@ end note
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
-- 扩展 front/back 及其失败状态不变性测试；保留已有 group/addto/ungroup/set、Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归。
+- 保留已完成的 front/back、group/addto/ungroup/set、Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归；SVG IO 接入后验证顺序可序列化并读回。
 - 对每个新增编辑命令验证“执行 → undo → redo”，沿用已建立的 redo 清空、init 后禁止 undo 和错误命令不入栈回归；read/save/canvas 接入时扩展 IO 历史验收。
 - 用含缺失 id、嵌套 g、文本和非法文件的 SVG 做读入测试，验证自动补 id 警告和错误前缀。
 - 对保存结果做 XML 检查，再 read 回来比较画布、层级、属性和文本，验证 round-trip。

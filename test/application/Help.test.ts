@@ -30,6 +30,8 @@ describe('registered help', () => {
         'group <newGid> <id1> [id2 ...]',
         'addto <gid> <id>',
         'ungroup <gid>',
+        'front <id>',
+        'back <id>',
       ],
     });
     expect(session.document).toBeNull();

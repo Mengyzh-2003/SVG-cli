@@ -12,6 +12,7 @@ import { SetAttributeCommand } from '../commands/SetAttributeCommand.js';
 import { GroupCommand } from '../commands/GroupCommand.js';
 import { AddToCommand } from '../commands/AddToCommand.js';
 import { UngroupCommand } from '../commands/UngroupCommand.js';
+import { ReorderCommand } from '../commands/ReorderCommand.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
@@ -94,6 +95,16 @@ export class EditorSession implements CommandExecutor {
       'ungroup',
       (request) => this.#ungroup(request),
       () => ['ungroup <gid>'],
+    );
+    this.#dispatcher.register(
+      'front',
+      (request) => this.#reorder(request, 'end', 'front', 'brought to front'),
+      () => ['front <id>'],
+    );
+    this.#dispatcher.register(
+      'back',
+      (request) => this.#reorder(request, 'start', 'back', 'sent to back'),
+      () => ['back <id>'],
     );
   }
 
@@ -376,6 +387,30 @@ export class EditorSession implements CommandExecutor {
         redoLines: [
           `${summary} ungrouped; ${count} children promoted into ${parent === null ? 'svg' : this.#formatter.identity(parent)}`,
         ],
+      }),
+    };
+  }
+
+  #reorder(
+    request: CommandRequest,
+    position: 'start' | 'end',
+    name: string,
+    action: string,
+  ): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 1 || request.args[0]!.value === '') {
+      throw new Error(`usage: ${name} <id>`);
+    }
+    const id = request.args[0]!.value;
+    const summary = this.#formatter.identity(document.require(id));
+    const parent = document.parentOf(id);
+    return {
+      status: 'success',
+      lines: this.#history.execute(new ReorderCommand(document, id, position), {
+        undoLines: [
+          `${summary} sibling order restored in ${parent === null ? 'svg' : this.#formatter.identity(parent)}`,
+        ],
+        redoLines: [`${summary} ${action}`],
       }),
     };
   }

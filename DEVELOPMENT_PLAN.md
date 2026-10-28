@@ -278,7 +278,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
-| 5C front/back | 进行中 | 5C.1 领域与命令验收中，5C.2 CLI 待接入 | 无 | 分模块推送并核实 CI |
+| 5C front/back | 待验收 | 5C.1 已推送且双平台 CI 通过；5C.2 本地 30 文件 554 项通过 | 无 | 推送 CLI 模块、核实 CI 后收尾 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
@@ -428,3 +428,6 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 - **5C.1 本地验收**：29 文件 522 项通过，保留原 498 项，新增领域/命令测试 24 项。typecheck、pretest 构建、format:check、git diff --check 均通过。SvgDocument.prepareReorder 复用 TreeChange，检查目标实例及当前父同级顺序，保持原父节点、属性和后代结构；ReorderCommand 保存同一变更，执行/撤销/重做不重算位置。
 - **5C.1 专项证据**：根/嵌套、首/中/尾节点、双方向、组与叶子、边界不变编辑、单节点、缺失后重试、陈旧 apply/undo/redo 原子拒绝与重试、同 id 替换对象拒绝、后续属性及无关子树变动保持、2000 层操作均通过。CLI 尚未注册，推送并核实 CI 后才开始 5C.2；本提交自身 SHA/CI 在后续记录补全。
+- **5C.1 远程核实**：`17940c1040b76acdc072d61a90fdde71a7606439` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40645655144](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40645655144) 对应该 SHA，Windows/Linux completed/success。核实后才实施 5C.2。
+- **5C.2 本地验收**：30 文件 554 项通过，比 5C.1 新增应用会话 30 项和源码/编译入口各 1 项。显式登记 front/back 和帮助语法，通过同一应用处理器注入方向，反馈由应用层生成、历史保存；Parser 和 HistoryManager 无需改动。覆盖文档/参数校验顺序、特殊 id 和转义、根/嵌套整组排序、无变化编辑清空 redo、失败保留两栈、陈旧 undo/redo 失败可重试、与 group/addto/ungroup/move/scale/set/delete 混合历史、IO 锁定与首个成功编辑解锁。
+- **5C.2 手工与质量证据**：Windows PTY 运行编译入口，front 叶子、back 含中文文本的组；tree/show 验证原父及后代保持，undo 后缺失 id 错误不影响 redo，Ctrl+D 退出 0。typecheck、pretest 构建、format:check、git diff --check 通过。根 README 与架构同步已实现范围及用法，过程记录只记实际测试契约错误与确认、修正。本模块独立提交并推送后核实 CI，再记录阶段完成。
