@@ -24,7 +24,7 @@ export class DocumentFormatter {
       const { shape, prefix, branch } = pending.pop()!;
       const attributes = this.#attributes(shape);
       lines.push(
-        `${prefix}${branch}${this.#identity(shape)}${attributes.length === 0 ? '' : ` ${attributes.join(' ')}`}`,
+        `${prefix}${branch}${this.identity(shape)}${attributes.length === 0 ? '' : ` ${attributes.join(' ')}`}`,
       );
       if (shape instanceof ContainerShape) {
         const childPrefix =
@@ -39,7 +39,7 @@ export class DocumentFormatter {
     const shape = document.require(id);
     const parent = document.parentOf(id);
     return [
-      `${this.#identity(shape)}  parent=${parent === null ? 'svg' : this.#identity(parent)}`,
+      `${this.identity(shape)}  parent=${parent === null ? 'svg' : this.identity(parent)}`,
       ...this.#attributes(shape).map((attribute) => `  ${attribute}`),
     ];
   }
@@ -50,8 +50,8 @@ export class DocumentFormatter {
     value: number | string | undefined,
   ): string {
     return value === undefined
-      ? `${this.#identity(shape)} attribute removed: ${this.#value(name)}`
-      : `${this.#identity(shape)} updated: ${this.#attribute(name, value)}`;
+      ? `${this.identity(shape)} attribute removed: ${this.#value(name)}`
+      : `${this.identity(shape)} updated: ${this.#attribute(name, value)}`;
   }
 
   #pushChildren(
@@ -68,7 +68,7 @@ export class DocumentFormatter {
     }
   }
 
-  #identity(shape: Shape): string {
+  identity(shape: Shape): string {
     return `${this.#value(shape.type)}#${this.#value(shape.id)}`;
   }
 

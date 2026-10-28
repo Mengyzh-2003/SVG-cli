@@ -2,6 +2,7 @@ import { ContainerShape } from '../shapes/ContainerShape.js';
 import { Shape } from '../shapes/Shape.js';
 import type { ShapeSubtree } from './ShapeSubtree.js';
 import { GeometryChange } from '../shapes/GeometryChange.js';
+import { TreeChange } from './TreeChange.js';
 
 interface DocumentNode {
   readonly shape: Shape;
@@ -13,7 +14,7 @@ export class SvgDocument {
   static readonly #owners = new WeakMap<Shape, SvgDocument>();
   readonly #width: number;
   readonly #height: number;
-  readonly #roots: string[] = [];
+  #roots: string[] = [];
   readonly #nodes = new Map<string, DocumentNode>();
 
   constructor(width = 800, height = 600) {
@@ -107,6 +108,80 @@ export class SvgDocument {
     );
   }
 
+  /** Group existing subtrees in document order; leave all shape values intact. */
+  prepareGroup(group: Shape, ids: readonly string[]): TreeChange {
+    if (!(group instanceof ContainerShape)) {
+      throw new Error(`not a container: ${group.id}`);
+    }
+    if (this.#nodes.has(group.id)) {
+      throw new Error(`id already exists: ${group.id}`);
+    }
+    if (SvgDocument.#owners.has(group)) {
+      throw new Error(`shape already belongs to a document: ${group.id}`);
+    }
+    if (ids.length === 0) throw new Error('group requires at least one shape');
+    const selected = new Set<string>();
+    for (const id of ids) {
+      this.#requireNode(id);
+      if (selected.has(id)) throw new Error(`duplicate shape selection: ${id}`);
+      selected.add(id);
+    }
+    const ordered: string[] = [];
+    const pending = [...this.#roots].reverse().map((id) => ({
+      id,
+      ancestor: null as string | null,
+    }));
+    while (pending.length > 0) {
+      const { id, ancestor } = pending.pop()!;
+      const chosen = selected.has(id);
+      if (chosen && ancestor !== null) {
+        throw new Error(
+          `cannot group a container into its own descendant: ${ancestor}`,
+        );
+      }
+      if (chosen) ordered.push(id);
+      const children = this.#requireNode(id).children;
+      for (let i = children.length - 1; i >= 0; i -= 1) {
+        pending.push({
+          id: children[i]!,
+          ancestor: ancestor ?? (chosen ? id : null),
+        });
+      }
+    }
+
+    const parents = new Set(
+      ordered.map((id) => this.#requireNode(id).parentId),
+    );
+    const parentId =
+      parents.size === 1 ? this.#requireNode(ordered[0]!).parentId : null;
+    const position =
+      parents.size === 1
+        ? this.#siblings(parentId).indexOf(ordered[0]!)
+        : undefined;
+    const after = new Map<string, DocumentNode | undefined>();
+    for (const oldParent of parents) {
+      if (oldParent !== null) {
+        const node = this.#requireNode(oldParent);
+        after.set(oldParent, {
+          ...node,
+          children: node.children.filter((id) => !selected.has(id)),
+        });
+      }
+    }
+    let roots: string[] | undefined;
+    if (parentId === null) {
+      roots = this.#roots.filter((id) => !selected.has(id));
+      roots.splice(position ?? roots.length, 0, group.id);
+    } else {
+      after.get(parentId)!.children.splice(position!, 0, group.id);
+    }
+    for (const id of ordered) {
+      after.set(id, { ...this.#requireNode(id), parentId: group.id });
+    }
+    after.set(group.id, { shape: group, parentId, children: ordered });
+    return this.#prepareTreeChange(after, roots);
+  }
+
   /** Validates the entire detached tree before changing membership or order. */
   insertSubtree(
     tree: ShapeSubtree,
@@ -172,6 +247,88 @@ export class SvgDocument {
       SvgDocument.#owners.delete(shape);
     }
     return tree;
+  }
+
+  #prepareTreeChange(
+    after: ReadonlyMap<string, DocumentNode | undefined>,
+    roots?: readonly string[],
+  ): TreeChange {
+    const copy = (node: DocumentNode | undefined): DocumentNode | undefined =>
+      node === undefined
+        ? undefined
+        : { ...node, children: [...node.children] };
+    const before = new Map(
+      [...after.keys()].map((id) => [id, copy(this.#nodes.get(id))]),
+    );
+    const target = new Map([...after].map(([id, node]) => [id, copy(node)]));
+    const beforeRoots = roots === undefined ? undefined : [...this.#roots];
+    const afterRoots = roots === undefined ? undefined : [...roots];
+    return new TreeChange(
+      () => this.#applyTreeChange(before, target, beforeRoots, afterRoots),
+      () => this.#applyTreeChange(target, before, afterRoots, beforeRoots),
+    );
+  }
+
+  #applyTreeChange(
+    expected: ReadonlyMap<string, DocumentNode | undefined>,
+    target: ReadonlyMap<string, DocumentNode | undefined>,
+    expectedRoots: readonly string[] | undefined,
+    targetRoots: readonly string[] | undefined,
+  ): void {
+    // Check all affected records and ownership before any membership/order write.
+    for (const [id, node] of expected) {
+      const current = this.#nodes.get(id);
+      if (node === undefined) {
+        if (current !== undefined) throw new Error(`id already exists: ${id}`);
+        const shape = target.get(id)!.shape;
+        if (SvgDocument.#owners.has(shape)) {
+          throw new Error(`shape already belongs to a document: ${id}`);
+        }
+      } else {
+        if (current === undefined) throw new Error(`no such shape: ${id}`);
+        if (
+          current.shape !== node.shape ||
+          current.parentId !== node.parentId ||
+          !this.#sameOrder(current.children, node.children)
+        ) {
+          throw new Error(`document structure changed: ${id}`);
+        }
+      }
+    }
+    if (
+      expectedRoots !== undefined &&
+      !this.#sameOrder(this.#roots, expectedRoots)
+    ) {
+      throw new Error('document structure changed: svg');
+    }
+    const prepared = [...target].map(
+      ([id, node]) =>
+        [
+          id,
+          node === undefined
+            ? undefined
+            : { ...node, children: [...node.children] },
+        ] as const,
+    );
+    const preparedRoots =
+      targetRoots === undefined ? undefined : [...targetRoots];
+    for (const [id, node] of prepared) {
+      if (node === undefined) {
+        SvgDocument.#owners.delete(this.#nodes.get(id)!.shape);
+        this.#nodes.delete(id);
+      } else {
+        this.#nodes.set(id, node);
+        SvgDocument.#owners.set(node.shape, this);
+      }
+    }
+    if (preparedRoots !== undefined) this.#roots = preparedRoots;
+  }
+
+  #sameOrder(left: readonly string[], right: readonly string[]): boolean {
+    return (
+      left.length === right.length &&
+      left.every((id, index) => id === right[index])
+    );
   }
 
   #requireNode(id: string): DocumentNode {

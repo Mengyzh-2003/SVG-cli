@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C 已完成，下一阶段为 5A。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C 已完成，5A 正在开发。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -130,6 +130,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 5A：GroupCommand、AddToCommand。5B：UngroupCommand。5C：front/back 的 ReorderCommand。
 
+5A 内部提交点：5A.1 group 的领域拓扑变更、命令和 CLI；5A.2 addto 复用受控拓扑变更并接入历史。前一模块独立测试、推送并核实精确 SHA 的 Windows/Linux CI 后再进入下一模块。拓扑始终归 SvgDocument 持有，TreeChange 只封装已校验前后关系的应用/恢复；命令不直接搬动公开 children，不修改图形本地数值或样式。
+
 验收：跨父节点收编、原有相对顺序、同级前后位置与 id 索引一致；拒绝重复选择、祖先与后代同时 group、自己移入自己或移入后代；顶层 g 的 ungroup 必须拒绝，嵌套 g 解散后子节点准确占据原位置。每条命令一次 undo 恢复所有原父节点与同级位置，redo 恢复操作后结构；嵌套容器 move/scale 的结果正确。
 
 提交粒度：5A、5B、5C；若 group 与 addto 各自已形成完整验收，也可分开提交。
@@ -182,6 +184,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | 未明确部分 | 默认决策与验证 |
 |---|---|
 | group 的新父节点与输入顺序 | 选择项同父时，新 g 放在最早被选节点的位置；跨父时新 g 挂根末尾。子节点按变更前文档深度优先遍历顺序排列，不以参数排列顺序重排；undo 精确恢复每个原位置 |
+| group 数量与反馈 | 接受至少一个已有节点，空组使用 create g；语法 group <newGid> <id1> [id2 ...]。成功/重做沿用需求示例 g#id created with N children；撤销显示 g#id removed; N children restored，准确描述恢复所有原父位置，不等同于受顶层限制的 ungroup 命令 |
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
@@ -266,7 +269,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
-| 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
+| 5A group/addto | 进行中 | 5A.1 本地 24 文件 420 项通过；推送/CI 待核实 | 无 | 5A.1 远程验收后进入 5A.2 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
@@ -391,3 +394,9 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **真实入口与手工证据**：源码 tsx 和构建入口均回放文本修改/恢复、词法/数值/未知属性失败后 redo、组样式与缺省恢复、转义/空文本、move/scale 混合历史、init 重锁及 EOF。另在 Windows PTY 运行 node dist/main.js，验证中文文本、set x 空字符串错误后 redo、组 fill 不改文本节点属性、撤销组 fill 重新缺失、零 stroke-width 恢复与重做、init 锁定；Ctrl+D 退出码 0。
 - **文档与实际问题**：根 README 补齐 set 白名单、运行示例与恢复语义；架构同步属性准备契约和已实现命令。现有 readonly 样式/文本缺少受控入口、不能据 attributes 是否存在决定白名单的问题及修正写入过程记录；收尾发现模式正文/图中实现状态落后于源码，也已核对并更新。常规进度仅记在本节。
 - **模式与范围**：Command 继续作为单次编辑历史单元，Composite 保持统一 Shape 接口与文档唯一拓扑，Factory/Registry 和 EditorSession Facade 延用现有职责；未新增模式或依赖反转。无阻塞。下一阶段 5A 实现 GroupCommand/AddToCommand，验证跨父归属/顺序、环拒绝、整条命令原子性和精确 undo/redo；继续按模块推送。本次未开始 5A、未实现 SVG IO 或 box，未创建 final tag。
+
+### 阶段 5A 模块进度（2026-10-28）
+
+- **5A.1 group 本地验收**：24 文件 420 项通过；typecheck、pretest 构建、format:check、git diff --check 通过。新增 TreeChange 与 SvgDocument.prepareGroup、GroupCommand 和应用层注册；按变更前文档顺序收编，同父插入最早位置，跨父放根末尾。命令保存受影响拓扑，校验完成后统一写入，支持精确恢复、冲突后重试及原实例保持。
+- **专项证据**：同父根级/嵌套、非连续选择、逆序参数、跨父混合深度、单节点、重复/缺失/祖先选择、占用 id/实例、准备不写入、冻结查询、撤销/重做前结构变化、2000 层树；会话验证错误/查询保留 redo、新编辑清空 redo、init 锁定和 group/move/scale/set/delete 混合历史；源码与编译入口各回放一次。Windows PTY 验证中文、跨父组合、需求冲突错误、一次 undo 恢复原父及 redo，Ctrl+D 正常退出。
+- **远程状态**：本模块准备独立提交推送，精确 SHA/CI 将在后续记录核实；此时不将 5A 标为完成。下一步为远程验收，通过后开发 5A.2 addto。

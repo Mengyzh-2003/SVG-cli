@@ -119,12 +119,12 @@ factory --> shapes : implementations of abstractions
 io --> document
 
 note right of dispatcher
-已实现的按名字分派点 1：
+已实现；按需求标记待重构的名字分派点 1：
 命令名 -> Handler
 end note
 
 note right of factory
-已实现的按名字分派点 2：
+已实现；按需求标记待重构的名字分派点 2：
 类型名 -> Shape
 后续可接 ShapeProvider 插件
 end note
@@ -333,6 +333,12 @@ end note
 - **发现**：架构首页已更新基础编辑进度，但 Command 模式正文仍仅写 CreateCommand 已实现，把 Delete/Move/Scale/SetAttributeCommand 列为后续；组件图仍把两个名字注册点标为待重构，正文与实际实现状态不一致。
 - **确认**：逐项对照 commands 下的接口实现、EditorSession 注册项与 CommandDispatcher/ShapeFactory 的真实注册表，确认这是遗留文档状态，实际已通过的基础编辑和两个分派点不需要重新实现。
 - **纠正**：正文明确已实现的五个编辑命令，图中两个分派点改为已实现；仍将 Group/Ungroup/AddTo/Reorder 与 IO 保留为后续范围。阶段进度和提交/CI 证据集中在开发方案第 8 节，避免把历史记录当作当前状态。
+
+### 2026-10-28：组合操作的原子拓扑变更与分派标记复核
+
+- **发现**：既有文档只提供整棵子树插入/摘除接口，直接用多次 remove/insert 编写跨父 group，会把完整校验分散在多次写入之间；撤销也可能在中途冲突后只恢复部分选择。另发现上一条记录把图中的“待重构”误读为“尚未实现”，删去了需求要求的标记。
+- **确认**：检查 SvgDocument、CreateCommand/DeleteCommand 的恢复边界；以跨父选择、祖先后代同时选择、撤销前组内出现额外节点、重做前 id 被占用/实例被其他文档占用等场景验证失败前后树和归属完全一致。重新核对需求 2.1 的两处分派限制，确认“待重构”与当前是否实现是独立含义。
+- **纠正**：由 SvgDocument 准备受影响节点及必要根顺序的前后拓扑，TreeChange 封装应用/恢复；每次先检查全部预期关系、实例和归属，再一次写入。GroupCommand 缓存同一变更供精确 undo/redo；不修改本地属性、不复制第二份可变树。图中同时写明“已实现”和“按需求标记待重构”；保留上条作为历史，并以本条纠正其对标记的解释。
 
 ## 一致性自查
 

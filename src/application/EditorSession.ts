@@ -9,6 +9,8 @@ import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { MoveCommand } from '../commands/MoveCommand.js';
 import { ScaleCommand } from '../commands/ScaleCommand.js';
 import { SetAttributeCommand } from '../commands/SetAttributeCommand.js';
+import { GroupCommand } from '../commands/GroupCommand.js';
+import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
 
@@ -75,6 +77,11 @@ export class EditorSession implements CommandExecutor {
       'set',
       (request) => this.#set(request),
       () => ['set <id> <attr> <value>'],
+    );
+    this.#dispatcher.register(
+      'group',
+      (request) => this.#group(request),
+      () => ['group <newGid> <id1> [id2 ...]'],
     );
   }
 
@@ -280,6 +287,32 @@ export class EditorSession implements CommandExecutor {
           redoLines: [this.#formatter.attributeUpdate(shape, name, value)],
         },
       ),
+    };
+  }
+
+  #group(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (
+      request.args.length < 2 ||
+      request.args.some((arg) => arg.value === '')
+    ) {
+      throw new Error('usage: group <newGid> <id1> [id2 ...]');
+    }
+    const group = this.#factory.create({
+      type: 'g',
+      id: request.args[0]!.value,
+    });
+    if (!(group instanceof ContainerShape)) {
+      throw new Error(`not a container: ${group.id}`);
+    }
+    const ids = request.args.slice(1).map((arg) => arg.value);
+    const summary = this.#formatter.identity(group);
+    return {
+      status: 'success',
+      lines: this.#history.execute(new GroupCommand(document, group, ids), {
+        undoLines: [`${summary} removed; ${ids.length} children restored`],
+        redoLines: [`${summary} created with ${ids.length} children`],
+      }),
     };
   }
 

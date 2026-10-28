@@ -27,6 +27,7 @@ describe('registered help', () => {
         'move <id> <dx> <dy>',
         'scale <id> <factor>',
         'set <id> <attr> <value>',
+        'group <newGid> <id1> [id2 ...]',
       ],
     });
     expect(session.document).toBeNull();

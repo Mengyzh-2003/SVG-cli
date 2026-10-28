@@ -6,6 +6,42 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('groups subtrees, reports the required ancestor error and restores in one undo', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create circle c1 100 100 20 red',
+        'create rect box 200 80 60 60 #3366ff',
+        'group markers box c1',
+        'group bad c1 markers',
+        'undo',
+        'show c1',
+        'redo',
+        'show box',
+        'tree',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'g#markers created with 2 children\nsvg> error: cannot group a container into its own descendant: markers',
+    );
+    expect(result.stdout).toContain(
+      'g#markers removed; 2 children restored\nsvg> circle#c1  parent=svg',
+    );
+    expect(result.stdout).toContain(
+      'g#markers created with 2 children\nsvg> rect#box  parent=g#markers',
+    );
+    expect(result.stdout).toContain(
+      '├── circle#c1 cx=100 cy=100 r=20 fill=red\n    └── rect#box',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(1);
+  });
+
   it('scales complete groups and recovers from invalid factors and late overflow', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -143,7 +179,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -256,7 +292,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
