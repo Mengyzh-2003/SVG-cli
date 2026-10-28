@@ -214,6 +214,33 @@ export class SvgDocument {
     return this.#prepareTreeChange(after, roots);
   }
 
+  /** Replace a nested group with its immediate children, retaining local values. */
+  prepareUngroup(id: string): TreeChange {
+    const node = this.#requireNode(id);
+    const container = this.#requireContainer(id);
+    if (!container.canUngroup) {
+      throw new Error(`cannot ungroup composite shape: ${id}`);
+    }
+    if (node.parentId === null) {
+      throw new Error(`cannot ungroup top-level container: ${id}`);
+    }
+    const parent = this.#requireNode(node.parentId);
+    const siblings = parent.children.flatMap((child) =>
+      child === id ? node.children : [child],
+    );
+    const after = new Map<string, DocumentNode | undefined>([
+      [id, undefined],
+      [node.parentId, { ...parent, children: siblings }],
+    ]);
+    for (const childId of node.children) {
+      after.set(childId, {
+        ...this.#requireNode(childId),
+        parentId: node.parentId,
+      });
+    }
+    return this.#prepareTreeChange(after);
+  }
+
   /** Validates the entire detached tree before changing membership or order. */
   insertSubtree(
     tree: ShapeSubtree,

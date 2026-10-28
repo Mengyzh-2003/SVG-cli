@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A 已完成，下一阶段为 5B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A 已完成，5B 正在开发。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -132,6 +132,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 5A 内部提交点：5A.1 group 的领域拓扑变更、命令和 CLI；5A.2 addto 复用受控拓扑变更并接入历史。前一模块独立测试、推送并核实精确 SHA 的 Windows/Linux CI 后再进入下一模块。拓扑始终归 SvgDocument 持有，TreeChange 只封装已校验前后关系的应用/恢复；命令不直接搬动公开 children，不修改图形本地数值或样式。
 
+5B 内部提交点：5B.1 容器解散能力、SvgDocument.prepareUngroup、UngroupCommand 与领域/命令测试；5B.2 EditorSession 注册、帮助、历史会话与源码/编译入口回归。前一模块单独推送并核实精确 SHA 的 Windows/Linux CI 后再进入下一模块。沿用 TreeChange，不通过逐个 remove/insert 提升孩子；容器默认不可解散，普通 GroupShape 显式开放能力，不按类型名识别复合图形。本阶段不实现 box。
+
 验收：跨父节点收编、原有相对顺序、同级前后位置与 id 索引一致；拒绝重复选择、祖先与后代同时 group、自己移入自己或移入后代；顶层 g 的 ungroup 必须拒绝，嵌套 g 解散后子节点准确占据原位置。每条命令一次 undo 恢复所有原父节点与同级位置，redo 恢复操作后结构；嵌套容器 move/scale 的结果正确。
 
 提交粒度：5A、5B、5C；若 group 与 addto 各自已形成完整验收，也可分开提交。
@@ -186,6 +188,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | group 的新父节点与输入顺序 | 选择项同父时，新 g 放在最早被选节点的位置；跨父时新 g 挂根末尾。子节点按变更前文档深度优先遍历顺序排列，不以参数排列顺序重排；undo 精确恢复每个原位置 |
 | group 数量与反馈 | 接受至少一个已有节点，空组使用 create g；语法 group <newGid> <id1> [id2 ...]。成功/重做沿用需求示例 g#id created with N children；撤销显示 g#id removed; N children restored，准确描述恢复所有原父位置，不等同于受顶层限制的 ungroup 命令 |
 | addto 错误与反馈 | 先校验目标容器，再校验源节点；自身/后代成环分别报 cannot add a container into itself: id / cannot add a container into its own descendant: id。成功/重做显示 类型#id added to 类型#目标，撤销显示 类型#id restored into svg 或 类型#原父；本地属性不做补偿 |
+| ungroup 校验与反馈 | 先按节点查询（缺失报 no such shape），叶子报 not a container；不可解散容器报需求规定的 cannot ungroup composite shape，之后检查顶层限制。成功/重做显示 类型#id ungrouped; N children promoted into 类型#原父，撤销显示 类型#id restored with N children。空嵌套组可解散并占一个历史单元；只提升直接孩子，保留所有本地属性，不补偿失去的组样式继承 |
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
@@ -271,7 +274,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
-| 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
+| 5B ungroup | 进行中 | 5B.1 本地 27 文件 477 项通过，等待模块远程验收 | 无 | 独立推送 5B.1 并核实 CI，再接入 CLI |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
@@ -406,3 +409,8 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **5A.2 远程核实**：`405ffae0c4b931ab6cddeab9cf6f5d989320a29e` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40634425208](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40634425208) 对应该 SHA，Windows/Linux completed/success。
 - **阶段结论与模式**：完成，无阻塞。保留原 392 项，group 新增 28、addto 新增 36，共 456 项。Command 保存同一 TreeChange 作为一次历史单元；Composite 沿用文档唯一关系来源，Factory/Registry 创建候选 g，Facade 编排参数、反馈与历史。未添加新的名字分派或多余模式。架构与使用说明同步已实现范围，过程记录仅记实际发现、确认及纠正。
 - **记录提交与下一步**：本验收记录独立作文档提交，其自身 SHA、push/CI 在阶段报告核实，避免自引用。下一阶段 5B 实现 UngroupCommand：拒绝顶层容器解散；嵌套组的子节点按原顺序提升到原父中组所在的位置；一次 undo 恢复原组实例、父子归属和同级顺序，redo 重用保存结果；覆盖失败不改状态/历史、空组与混合历史。本次不开始 5B、5C 或 SVG IO，不实现 box，不创建 final tag。
+
+### 阶段 5B 模块进度（2026-10-28）
+
+- **5B.1 本地验收**：27 文件 477 项通过，保留原 456 项、新增领域/命令测试 21 项；typecheck、pretest 构建、format:check、git diff --check 通过。ContainerShape 默认 canUngroup=false，GroupShape 显式开放；SvgDocument.prepareUngroup 复用 TreeChange，将直接孩子按原顺序替换组所在位置，不展平更深子树、不复制样式。UngroupCommand 保存同一变更，整条操作作为一次可撤销单元。
+- **5B.1 专项证据**：覆盖首/中/尾位置、空组、原实例与属性/缺省样式保持、冻结查询、顶层/叶子/缺失/受保护容器拒绝、准备不变更、失败后重试、id 复用及跨文档实例占用、陈旧拓扑拒绝与 2000 层结构。CLI 尚未注册 ungroup，远程 SHA/CI 推送后核实；下一模块为 5B.2 会话与真实入口。

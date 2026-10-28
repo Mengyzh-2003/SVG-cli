@@ -9,4 +9,8 @@ export class GroupShape extends ContainerShape {
   get type(): string {
     return 'g';
   }
+
+  override get canUngroup(): boolean {
+    return true;
+  }
 }

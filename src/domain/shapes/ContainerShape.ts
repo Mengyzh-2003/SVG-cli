@@ -7,6 +7,11 @@ export abstract class ContainerShape extends Shape {
     super(id, style);
   }
 
+  /** Child ownership alone does not permit dissolving a composite's structure. */
+  get canUngroup(): boolean {
+    return false;
+  }
+
   override prepareMove(dx: number, dy: number): GeometryChange {
     Shape.requireFiniteGeometry(dx, 'dx');
     Shape.requireFiniteGeometry(dy, 'dy');
