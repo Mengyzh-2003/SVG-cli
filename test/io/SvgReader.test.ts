@@ -4,10 +4,48 @@ import fsPromises from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 import { SvgReader } from '../../src/io/SvgReader.js';
 import { SvgReadError } from '../../src/io/SvgReadError.js';
+import { SvgWriter } from '../../src/io/SvgWriter.js';
 import { ShapeFactory } from '../../src/shapes/ShapeFactory.js';
 
 describe('SvgReader', () => {
   const reader = new SvgReader();
+  const ellipseCases: readonly [
+    string,
+    string,
+    {
+      readonly cx: number;
+      readonly cy: number;
+      readonly rx?: number;
+      readonly ry?: number;
+    },
+  ][] = [
+    [
+      'only rx',
+      '<ellipse id="e" cx="50" cy="50" rx="20"/>',
+      { cx: 50, cy: 50, rx: 20 },
+    ],
+    [
+      'only ry',
+      '<ellipse id="e" cx="50" cy="50" ry="20"/>',
+      { cx: 50, cy: 50, ry: 20 },
+    ],
+    [
+      'only rx explicitly zero',
+      '<ellipse id="e" cx="50" cy="50" rx="0"/>',
+      { cx: 50, cy: 50, rx: 0 },
+    ],
+    [
+      'only ry explicitly zero',
+      '<ellipse id="e" cx="50" cy="50" ry="0"/>',
+      { cx: 50, cy: 50, ry: 0 },
+    ],
+    ['neither radius', '<ellipse id="e" cx="50" cy="50"/>', { cx: 50, cy: 50 }],
+    [
+      'explicit zero radii',
+      '<ellipse id="e" cx="50" cy="50" rx="0" ry="0"/>',
+      { cx: 50, cy: 50, rx: 0, ry: 0 },
+    ],
+  ];
 
   it('reads all six types, canvas, local attributes and ordered nested topology', () => {
     const { document, warnings } =
@@ -52,6 +90,41 @@ describe('SvgReader', () => {
     expect(document.require('t').textContent).toBe(' 中文 & < > " \' ');
     expect(document.require('t').attributes['font-size']).toBe('16');
     expect(warnings).toEqual([]);
+  });
+
+  it.each(ellipseCases)(
+    'preserves SVG ellipse auto/default semantics for %s',
+    (_case, ellipse, expected) => {
+      const { document } = reader.read(`<svg>${ellipse}</svg>`);
+      const shape = document.require('e');
+      expect(shape.attributes).toEqual(expected);
+
+      const serialized = new SvgWriter().write(document);
+      const restored = reader.read(serialized).document.require('e');
+      expect(restored.attributes).toEqual(expected);
+      expect(serialized.includes('rx="0"')).toBe(expected.rx === 0);
+      expect(serialized.includes('ry="0"')).toBe(expected.ry === 0);
+    },
+  );
+
+  it('keeps zero defaults for omitted non-ellipse geometry', () => {
+    const { document } = reader.read(
+      '<svg><rect id="r"/><circle id="c"/><line id="l"/><text id="t"/></svg>',
+    );
+    expect(document.require('r').attributes).toEqual({
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    });
+    expect(document.require('c').attributes).toEqual({ cx: 0, cy: 0, r: 0 });
+    expect(document.require('l').attributes).toEqual({
+      x1: 0,
+      y1: 0,
+      x2: 0,
+      y2: 0,
+    });
+    expect(document.require('t').attributes).toEqual({ x: 0, y: 0, text: '' });
   });
 
   it('supports prefixed SVG names and preserves namespace declarations and attributes', () => {

@@ -6,8 +6,8 @@ export class EllipseShape extends GeometryShape {
     id: string,
     cx: number,
     cy: number,
-    rx: number,
-    ry: number,
+    rx: number | undefined,
+    ry: number | undefined,
     style: ShapeStyleOptions = {},
   ) {
     super(
@@ -15,6 +15,7 @@ export class EllipseShape extends GeometryShape {
       { cx, cy, rx, ry },
       { cx: 'x', cy: 'y', rx: 'size', ry: 'size' },
       style,
+      ['rx', 'ry'],
     );
   }
 
@@ -30,11 +31,11 @@ export class EllipseShape extends GeometryShape {
     return this.numberAt('cy');
   }
 
-  get rx(): number {
-    return this.numberAt('rx');
+  get rx(): number | undefined {
+    return this.optionalNumberAt('rx');
   }
 
-  get ry(): number {
-    return this.numberAt('ry');
+  get ry(): number | undefined {
+    return this.optionalNumberAt('ry');
   }
 }

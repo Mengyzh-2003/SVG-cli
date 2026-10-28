@@ -56,6 +56,28 @@ describe('SvgWriter and round-trip', () => {
     expect(source.indexOf('id="r"')).toBeLessThan(source.indexOf('id="c"'));
   });
 
+  it('scales an auto ellipse radius without materializing the omitted radius', () => {
+    const document = reader.read(
+      '<svg><ellipse id="e" rx="20"/></svg>',
+    ).document;
+    const ellipse = document.require('e');
+    expect(ellipse.attributes).toEqual({ cx: 0, cy: 0, rx: 20 });
+
+    ellipse.prepareScale(2).apply();
+    expect(ellipse.attributes).toEqual({ cx: 0, cy: 0, rx: 40 });
+    let source = writer.write(document);
+    expect(source).toContain('rx="40"');
+    expect(source).not.toContain('ry=');
+
+    const setRadius = ellipse.prepareSet('ry', 10);
+    setRadius.apply();
+    expect(ellipse.attributes.ry).toBe(10);
+    setRadius.restore();
+    source = writer.write(document);
+    expect(ellipse.attributes).toEqual({ cx: 0, cy: 0, rx: 40 });
+    expect(source).not.toContain('ry=');
+  });
+
   it.each([
     '',
     ' 中文 ',

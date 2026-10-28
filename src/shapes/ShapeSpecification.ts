@@ -22,8 +22,8 @@ export interface EllipseShapeSpecification extends ShapeStyleOptions {
   readonly id: string;
   readonly cx: number;
   readonly cy: number;
-  readonly rx: number;
-  readonly ry: number;
+  readonly rx?: number;
+  readonly ry?: number;
 }
 
 export interface LineShapeSpecification extends ShapeStyleOptions {

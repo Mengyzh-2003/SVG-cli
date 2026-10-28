@@ -46,7 +46,11 @@ export class ShapeFactory {
   constructor() {
     this.#registerBuiltin(
       'rect',
-      { numbers: ['x', 'y', 'width', 'height'], style: 'fill' },
+      {
+        numbers: ['x', 'y', 'width', 'height'],
+        style: 'fill',
+        svgDefaults: { x: 0, y: 0, width: 0, height: 0 },
+      },
       (specification) => {
         return new RectShape(
           specification.id,
@@ -60,7 +64,11 @@ export class ShapeFactory {
     );
     this.#registerBuiltin(
       'circle',
-      { numbers: ['cx', 'cy', 'r'], style: 'fill' },
+      {
+        numbers: ['cx', 'cy', 'r'],
+        style: 'fill',
+        svgDefaults: { cx: 0, cy: 0, r: 0 },
+      },
       (specification) => {
         return new CircleShape(
           specification.id,
@@ -73,7 +81,11 @@ export class ShapeFactory {
     );
     this.#registerBuiltin(
       'ellipse',
-      { numbers: ['cx', 'cy', 'rx', 'ry'], style: 'fill' },
+      {
+        numbers: ['cx', 'cy', 'rx', 'ry'],
+        style: 'fill',
+        svgDefaults: { cx: 0, cy: 0, rx: 'auto', ry: 'auto' },
+      },
       (specification) => {
         return new EllipseShape(
           specification.id,
@@ -87,7 +99,11 @@ export class ShapeFactory {
     );
     this.#registerBuiltin(
       'line',
-      { numbers: ['x1', 'y1', 'x2', 'y2'], style: 'stroke' },
+      {
+        numbers: ['x1', 'y1', 'x2', 'y2'],
+        style: 'stroke',
+        svgDefaults: { x1: 0, y1: 0, x2: 0, y2: 0 },
+      },
       (specification) => {
         return new LineShape(
           specification.id,
@@ -101,7 +117,7 @@ export class ShapeFactory {
     );
     this.#registerBuiltin(
       'text',
-      { numbers: ['x', 'y'], text: true },
+      { numbers: ['x', 'y'], text: true, svgDefaults: { x: 0, y: 0 } },
       (specification) => {
         return new TextShape(
           specification.id,
@@ -235,7 +251,13 @@ export class ShapeFactory {
         const known = new Set(['id', 'fill', 'stroke', 'stroke-width']);
         for (const name of schema.numbers) {
           known.add(name);
-          values[name] = this.#svgNumber(attributes[name] ?? '0', name);
+          const raw = attributes[name];
+          if (raw !== undefined) {
+            values[name] = this.#svgNumber(raw, name);
+          } else {
+            const defaultValue = schema.svgDefaults?.[name] ?? 0;
+            if (defaultValue !== 'auto') values[name] = defaultValue;
+          }
         }
         if (schema.text) values.text = text;
         if (attributes.fill !== undefined) values.fill = attributes.fill;
