@@ -24,6 +24,7 @@
     "vitest": "^4.1.12"
   },
   "dependencies": {
-    "saxes": "^6.0.0"
+    "saxes": "^6.0.0",
+    "xmlchars": "^2.2.0"
   }
 }

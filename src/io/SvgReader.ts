@@ -103,6 +103,17 @@ export class SvgReader {
         children: [],
         text: '',
       };
+      // A child can later leave the ancestor that declared an attribute prefix.
+      // Capture that binding locally so reparenting does not break serialization.
+      for (const attribute of Object.values(tag.attributes)) {
+        if (
+          attribute.prefix !== '' &&
+          attribute.prefix !== 'xml' &&
+          attribute.prefix !== 'xmlns'
+        ) {
+          node.attributes[`xmlns:${attribute.prefix}`] = attribute.uri;
+        }
+      }
       if (stack.length === 0) root = node;
       else stack.at(-1)!.children.push(node);
       stack.push(node);
