@@ -1,5 +1,6 @@
 import { Shape, type ShapeStyleOptions } from './Shape.js';
 import { GeometryChange } from './GeometryChange.js';
+import { AttributeChange } from './AttributeChange.js';
 
 /** Encapsulates numeric local geometry and validated, exact state replacement. */
 export abstract class GeometryShape extends Shape {
@@ -31,6 +32,29 @@ export abstract class GeometryShape extends Shape {
 
   protected numberAt(name: string): number {
     return this.#values[name]!;
+  }
+
+  override attributeType(name: string): 'number' | 'string' {
+    return Object.hasOwn(this.#axes, name)
+      ? 'number'
+      : super.attributeType(name);
+  }
+
+  override prepareSet(name: string, value: number | string): AttributeChange {
+    if (!Object.hasOwn(this.#axes, name)) return super.prepareSet(name, value);
+    const before = this.#values;
+    const after = this.#validate({
+      ...before,
+      [name]: GeometryShape.requireAttributeNumber(value, name),
+    });
+    return new AttributeChange(
+      () => {
+        this.#values = after;
+      },
+      () => {
+        this.#values = before;
+      },
+    );
   }
 
   override prepareMove(dx: number, dy: number): GeometryChange {

@@ -1,8 +1,9 @@
 import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
 import { GeometryShape } from '../domain/shapes/GeometryShape.js';
+import { AttributeChange } from '../domain/shapes/AttributeChange.js';
 
 export class TextShape extends GeometryShape {
-  readonly #text: string;
+  #text: string;
 
   constructor(
     id: string,
@@ -17,6 +18,24 @@ export class TextShape extends GeometryShape {
 
   get type(): string {
     return 'text';
+  }
+
+  override attributeType(name: string): 'number' | 'string' {
+    return name === 'text' ? 'string' : super.attributeType(name);
+  }
+
+  override prepareSet(name: string, value: number | string): AttributeChange {
+    if (name !== 'text') return super.prepareSet(name, value);
+    const before = this.#text;
+    const after = TextShape.requireAttributeString(value, name);
+    return new AttributeChange(
+      () => {
+        this.#text = after;
+      },
+      () => {
+        this.#text = before;
+      },
+    );
   }
 
   override get geometry(): Readonly<Record<string, number | string>> {

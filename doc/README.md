@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；基础编辑实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/ScaleCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口；Composite 几何移动/缩放已接入，set、重组及 SVG IO 仍按后续阶段实现。
+架构基线：2026-10-26，v1.1；基础编辑实现更新：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/ScaleCommand 和 HistoryManager 已落地，tree/show/help/undo/redo 已连接真实入口；Composite 几何移动/缩放已接入。4C.1 已实现属性准备接口和 SetAttributeCommand，CLI set 尚待 4C.2；重组及 SVG IO 仍按后续阶段实现。
 
 ## 架构方案
 
@@ -147,7 +147,7 @@ end note
 
 #### Composite：统一容器与叶子操作
 
-`Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。4B 的统一几何操作由 `SvgDocument` 按唯一拓扑迭代汇总各 Shape 的本地准备结果：叶子经 `GeometryShape` 校验坐标/尺寸，容器本地为空操作，子孙各处理一次。整个子树准备成功后才应用 `GeometryChange`，避免递归调用栈及中途失败造成部分修改。GroupShape 不另存 children；命令无需区分容器与叶子。set 白名单随 4C 接入；删除和重组通过统一子树接口维护索引与归属。XML 生成仍位于 IO 层。
+`Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。4B 的统一几何操作由 `SvgDocument` 按唯一拓扑迭代汇总各 Shape 的本地准备结果：叶子经 `GeometryShape` 校验坐标/尺寸，容器本地为空操作，子孙各处理一次。整个子树准备成功后才应用 `GeometryChange`，避免递归调用栈及中途失败造成部分修改。GroupShape 不另存 children；命令无需区分容器与叶子。4C 的 attributeType/prepareSet 多态接口分别提供属性类型白名单和已校验的本地 AttributeChange；公共样式由 Shape 处理，数值几何沿用 GeometryShape 的坐标轴/尺寸声明，TextShape 补充 text。领域接收 number/string，不负责 CLI 数字转换。SetAttributeCommand 保存前后状态，撤销缺省样式时恢复 undefined，使属性重新缺失，不写入渲染默认值；容器属性不传播。删除和重组通过统一子树接口维护索引与归属。XML 生成仍位于 IO 层。
 
 `GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 使用局部 **Template Method**：固定快照保存与执行/恢复生命周期，MoveCommand/ScaleCommand 只覆写准备钩子，redo 重用保存结果。数值视图冻结，文字和样式不参与运算；scale 乘全部坐标和尺寸，文本仅有 x/y 数值，不扩大字体，stroke-width 不变。有限下溢为零可接受，非有限结果拒绝；极小倍数的撤销同样恢复原值，不依赖除法。扩展 Shape 未实现相应准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
 
@@ -321,6 +321,12 @@ end note
 - **发现**：已有叶子只提供 readonly 数字字段和只读视图，不能受控修改；原架构“容器递归执行”若直接逐个改子孙，会在后代溢出时留下部分变更，也容易迫使 GroupShape 复制文档已有的 children。
 - **确认**：检查五种叶子、Shape、GroupShape 与 SvgDocument 的字段归属；构造前部正常、末端极大坐标的组，要求移动失败后所有节点属性、索引和拓扑均与之前相同。0.1 加 0.2 的恢复测试确认逆算不适合作为精确 undo。
 - **纠正**：数值封装收拢到 GeometryShape，具体类声明坐标轴/尺寸并保持原 getter；文档迭代准备整棵子树的多态 GeometryChange，全部校验后统一应用。命令保存前后值供 undo/redo，不做逆算；用 2000 层容器、末端溢出、未支持移动的扩展类型及样式/文本保持验证。同步修正 Composite 的具体协作描述，不重复保存树关系。
+
+### 2026-10-28：属性修改入口与缺省样式恢复校验
+
+- **发现**：现有 Shape 样式和 TextShape 文本仍为 readonly 字段，没有受控 set 入口；attributes 仅包含已存在值，若据此判断可编辑属性，会错误拒绝缺省的 fill/stroke/stroke-width。把缺省样式恢复成 black/none 也会改变后续 SVG 继承语义。
+- **确认**：逐项对照需求 4.1 白名单与现有 getter/attributes，使用缺省样式、空字符串、none、零描边宽度及嵌套容器构造恢复测试；检查原实现字段声明，确认需要补充受控修改能力，而非开放字段赋值。
+- **纠正**：增加与属性是否存在无关的 attributeType 白名单和 prepareSet；所有校验在变更前完成，AttributeChange 捕获前后值，SetAttributeCommand 复用同一快照重做。恢复 undefined 后 attributes 省略该键，g 只修改自身；公开 getter/视图仍只读。命令仅依赖领域及 Command，不为属性名字新增命令/图形类型分派，也不把样式/文本修改强行并入几何运算。
 
 ## 一致性自查
 

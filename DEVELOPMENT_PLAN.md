@@ -120,6 +120,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 4C：实现 SetAttributeCommand 和严格的类型属性白名单，恢复时区分“属性不存在”与“显式值”。
 
+4C 内部提交点：4C.1 领域属性类型/准备接口、SetAttributeCommand 与直接执行/恢复测试；4C.2 CLI set 注册、参数转换、单行摘要与历史/真实入口回归。领域接收已转换的 number/string，不解析 CLI；属性白名单由图形多态提供，不能从当前属性是否存在推断可编辑性。前一模块测试、独立推送及双平台 CI 核实后再进入后一模块。
+
 验收：每条编辑均覆盖执行 → undo → redo；容器与叶子走统一接口；撤销后新成功编辑清空 redo，查询和失败编辑保留 redo。scale 非正数、非有限数和结果溢出不改状态；g 的 fill/stroke/stroke-width 保持容器自身属性；scale 只乘几何属性，不改 stroke-width。
 
 提交粒度：4A、4B、4C 各自反馈、提交和推送；规模仍大时再按命令拆分。
@@ -262,7 +264,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 下一阶段 4C set |
-| 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
+| 4C set | 进行中 | 4C.1 本地 21 文件 345 项、类型/构建/格式/diff 检查通过；待远程 CI 核实 | 无 | 推送 4C.1，通过后接 CLI |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |

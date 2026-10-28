@@ -1,4 +1,5 @@
 import type { GeometryChange } from './GeometryChange.js';
+import { AttributeChange } from './AttributeChange.js';
 
 export interface ShapeStyleOptions {
   readonly fill?: string;
@@ -8,9 +9,9 @@ export interface ShapeStyleOptions {
 
 export abstract class Shape {
   readonly #id: string;
-  readonly #fill: string | undefined;
-  readonly #stroke: string | undefined;
-  readonly #strokeWidth: number | undefined;
+  #fill: string | undefined;
+  #stroke: string | undefined;
+  #strokeWidth: number | undefined;
 
   protected constructor(id: string, style: ShapeStyleOptions = {}) {
     if (id.length === 0) {
@@ -48,6 +49,45 @@ export abstract class Shape {
   }
 
   abstract get type(): string;
+
+  /** The editable schema, independent of whether an attribute is present. */
+  attributeType(name: string): 'number' | 'string' {
+    if (name === 'fill' || name === 'stroke') return 'string';
+    if (name === 'stroke-width') return 'number';
+    throw new Error(`unknown attribute: ${name}`);
+  }
+
+  /** Prepares one local attribute, never propagating container styles. */
+  prepareSet(name: string, value: number | string): AttributeChange {
+    if (name === 'fill' || name === 'stroke') {
+      const after = Shape.requireAttributeString(value, name);
+      const before = name === 'fill' ? this.#fill : this.#stroke;
+      const assign = (next: string | undefined): void => {
+        if (name === 'fill') this.#fill = next;
+        else this.#stroke = next;
+      };
+      return new AttributeChange(
+        () => assign(after),
+        () => assign(before),
+      );
+    }
+    if (name === 'stroke-width') {
+      const after = Shape.requireNonNegativeGeometry(
+        Shape.requireAttributeNumber(value, name),
+        name,
+      );
+      const before = this.#strokeWidth;
+      return new AttributeChange(
+        () => {
+          this.#strokeWidth = after;
+        },
+        () => {
+          this.#strokeWidth = before;
+        },
+      );
+    }
+    throw new Error(`unknown attribute: ${name}`);
+  }
 
   /** Optional local anchor for application feedback; groups have no position. */
   get position(): readonly [number, number] | undefined {
@@ -89,6 +129,23 @@ export abstract class Shape {
     if (!Number.isFinite(value)) {
       throw new Error(`${name} must be a finite number`);
     }
+    return value;
+  }
+
+  protected static requireAttributeNumber(
+    value: number | string,
+    name: string,
+  ): number {
+    if (typeof value !== 'number')
+      throw new Error(`${name} must be a finite number`);
+    return Shape.requireFiniteGeometry(value, name);
+  }
+
+  protected static requireAttributeString(
+    value: number | string,
+    name: string,
+  ): string {
+    if (typeof value !== 'string') throw new Error(`${name} must be a string`);
     return value;
   }
 
