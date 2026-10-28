@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C 和 4A 已完成，下一阶段为 4B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4B 已完成，下一阶段为 4C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。delete/move/scale 同样由应用处理器校验参数和生成摘要，经历史管理器执行各自命令；领域层负责子树摘除/恢复及几何准备。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
 
 ### 3.2 主流程与分派限制
 
@@ -64,6 +64,7 @@ Parser 返回命令名与保留 quoted 信息的词元；结构化请求不要�
 - **Composite**：Shape 抽象统一叶子与 GroupShape 的几何准备契约；SvgDocument 作为唯一拓扑持有者，迭代汇总子树各节点的多态本地变更，完整校验后统一应用，不在 GroupShape 重复保存 children。删除和重组同样由文档维护子树及 id 索引。g 的公共属性设置保留 SVG 继承语义（set 随 4C 接入）。
 - **Factory/Registry**：ShapeFactory 集中注册六种具体图形，CLI 创建与 SVG 读入复用注册项；未来可新增提供者，本阶段不实现 box。
 - **Facade**：EditorSession 提供稳定执行入口，编排处理器、历史和 IO；不承担具体图形运算或 XML 解析。
+- **Template Method（4B 局部复用）**：GeometryCommand 固定执行/恢复及快照保存顺序，MoveCommand 与 ScaleCommand 只覆写准备钩子；两种具体运算复用同一生命周期，不新增分派表。
 
 Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，也不为凑模式拆分 id 分配器、颜色格式化器等额外策略。每个模式首次落地及有实质调整时，在阶段反馈中说明类名、协作关系和验证证据。
 
@@ -259,8 +260,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
-| 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 等待阶段 4B 任务 |
-| 4B delete/move/scale | 进行中 | 4B.1 `997de0f`、4B.2 `6bfa850` 已分别推送且双平台 CI 通过；4B.3 scale 本地验收中 | 无 | 核实 scale 推送/CI，完成阶段记录 |
+| 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
+| 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 下一阶段 4C set |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
@@ -367,6 +368,11 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 ### 阶段 4B 模块进度（2026-10-28）
 
 - **4B.1 delete**：`997de0fc5c133d4ce8a07c99b5ddb9f485836cfb` 已独立推送并核实远程 SHA；[CI 40625108180](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40625108180) Windows/Linux completed/success 后才开始移动模块。16 文件 246 项通过，typecheck、pretest 构建、format:check、diff 检查通过。新增子树恢复、身份/属性/父关系/顺序、冲突后重试、混合历史、删除 id 复用、失败保留双栈及源码/编译入口删除会话。
-- **4B.2 move 本地验收**：18 文件 276 项全部通过；typecheck、pretest 构建、format:check、diff 检查通过。GeometryShape 封装数值，GeometryChange 捕获前后值，SvgDocument 迭代准备子树；MoveCommand 复用 GeometryCommand 快照生命周期，EditorSession 生成锚点或增量摘要。覆盖六种类型、双端点、精确浮点恢复、文本/样式保持、末端溢出失败后重试、未支持扩展拒绝、2000 层树和无变化编辑清空 redo；真实两种入口验证需求中的圆与容器移动反馈。推送/CI 尚待本模块提交后核实。
+- **4B.2 move 本地验收**：18 文件 276 项全部通过；typecheck、pretest 构建、format:check、diff 检查通过。GeometryShape 封装数值，GeometryChange 捕获前后值，SvgDocument 迭代准备子树；MoveCommand 复用 GeometryCommand 快照生命周期，EditorSession 生成锚点或增量摘要。覆盖六种类型、双端点、精确浮点恢复、文本/样式保持、末端溢出失败后重试、未支持扩展拒绝、2000 层树和无变化编辑清空 redo；真实两种入口验证需求中的圆与容器移动反馈。远程核实见下一项。
 - **4B.2 远程核实**：`6bfa85025df15f8e22ef29f3b96a2a45fb697281` 独立推送并以 ls-remote 核实；[CI 40625689104](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40625689104) Windows/Linux completed/success 后才开始缩放。Windows PTY 编译入口验证中文文本随组移动、0.1/0.2 撤销精确恢复、子树删除后查询报错、undo/redo 和 EOF 退出 0。
-- **4B.3 scale 本地验收**：20 文件 314 项通过，typecheck、pretest 构建、format:check、diff 检查通过。ScaleCommand 复用既有 GeometryCommand/GeometryChange，领域统一验证正有限 factor，所有数值几何同乘，文字/样式/描边宽度不变。覆盖六种类型、2000 层树、末端坐标/尺寸/端点溢出原子性、有限下溢、十轮精确恢复、数值型扩展以及 create/move/scale/delete 混合历史；源码/编译入口各回放组缩放、失败保留 redo、后代溢出不改已有节点和 init 重锁。推送/CI 待本模块提交后核实。
+- **4B.3 scale 本地验收**：20 文件 314 项通过，typecheck、pretest 构建、format:check、diff 检查通过。ScaleCommand 复用既有 GeometryCommand/GeometryChange，领域统一验证正有限 factor，所有数值几何同乘，文字/样式/描边宽度不变。覆盖六种类型、2000 层树、末端坐标/尺寸/端点溢出原子性、有限下溢、十轮精确恢复、数值型扩展以及 create/move/scale/delete 混合历史；源码/编译入口各回放组缩放、失败保留 redo、后代溢出不改已有节点和 init 重锁。
+- **4B.3 远程核实**：`3adeade1781061bc9d6aab9ff2952adcdce39930` 独立推送并以 ls-remote 核实；[CI 40626220947](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40626220947) 对应该精确 SHA，Windows/Linux completed/success。三个模块均前一实现远程/CI 核实后才开始下一模块。
+- **阶段验收与环境**：完成。Windows、Node.js 24.15.0 / npm 11.12.1；20 文件 314 项通过，保留原 235 项回归，delete 新增 11、move 新增 30、scale 新增 38。所有源码/测试严格类型检查、pretest 构建、Prettier 及 diff 空白检查通过。Windows PTY 编译入口验证组移动/缩放、中文、精确恢复、scale 0 后仍可 redo、后代溢出不改已有矩形、删除子树恢复、init 锁定及 Ctrl+D 退出 0。
+- **模式与架构调整**：Command 统一入历史，Composite 由文档迭代遍历唯一拓扑与 Shape 多态本地准备协作；GeometryShape 私有冻结数值封装，GeometryChange 保存精确状态；GeometryCommand 用模板方法复用 move/scale 生命周期。Facade 只做参数/摘要/历史编排，工厂注册点保持不变。抽查新命令、文档、五种叶子与基类，无反向依赖或新增按名字分派，一类一文件。
+- **发现与纠正**：旧只读几何类缺少受控修改入口，逐个改后代无法保证后代溢出时状态不变；已改为全子树准备后统一应用并保存前后值。原“容器递归执行”的实现描述与唯一关系来源约束衔接不足，已明确文档层迭代协调，不在 GroupShape 复制 children；证据与修正写入 doc/README.md 过程记录。根 README 同步当前命令、可回放示例与数值边界。
+- **记录提交与下一步**：本阶段记录独立作文档提交，避免自引用 SHA；其自身 push/CI 在本次最终报告核实。无阻塞。下一阶段 4C：SetAttributeCommand、按类型严格属性白名单、属性缺省与显式值的精确恢复、g 样式不覆写子节点及失败保持文档/历史。本次未实现 set、重组、IO、box，未创建 final tag。

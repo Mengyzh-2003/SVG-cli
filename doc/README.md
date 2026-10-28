@@ -39,7 +39,7 @@
 
 六种具体类型（含 `GroupShape`）只放在 `src/shapes/`，避免领域抽象与具体类重复归属。`SvgDocument` 持有领域抽象，负责统一维护树与索引；具体类不反向调用工厂。
 
-阶段 3A 的结构实现：`SvgDocument` 是父子关系的唯一事实来源，Shape 不重复保存 parent/children；通过 `parentOf`、`childrenOf` 和 `walk` 查询，返回冻结的顺序快照。`insert`/`insertSubtree` 完整校验候选后才加入索引和树；`remove` 摘除整棵子树并返回冻结的 `ShapeSubtree` 拓扑，保留原 Shape 实例供恢复使用，不将其当作几何属性快照。命令恢复原位置时另行保存父节点和同级索引。跨文档的同一 Shape 实例在摘除前不得重复挂接；不同文档可以各自使用相同 id 的不同实例。几何变更与完整 Composite 行为按阶段 4B/4C 接入。
+阶段 3A 建立的结构基础：`SvgDocument` 是父子关系的唯一事实来源，Shape 不重复保存 parent/children；通过 `parentOf`、`childrenOf` 和 `walk` 查询，返回冻结的顺序快照。`insert`/`insertSubtree` 完整校验候选后才加入索引和树；`remove` 摘除整棵子树并返回冻结的 `ShapeSubtree` 拓扑，保留原 Shape 实例供恢复使用，不将其当作几何属性快照。命令恢复原位置时另行保存父节点和同级索引。跨文档的同一 Shape 实例在摘除前不得重复挂接；不同文档可以各自使用相同 id 的不同实例。4B 已在此基础上接入子树移动/缩放及精确恢复，set 属性修改留待 4C。
 
 阶段 3C 的查询实现：具体图形覆写 `Shape.geometry`，基类 `attributes` 合并显式公共样式，返回冻结的属性快照；GroupShape 沿用空几何视图。`DocumentFormatter` 只依赖领域抽象，迭代读取文档关系并生成 tree/show；不按 type/tag 判断具体几何。两种查询使用规范属性名，show 从 `parentOf` 读取真实父节点，根级显示 parent=svg。文本与有特殊字符的值转义为单行，原属性不变。它是应用层格式化职责，不新增 Strategy 模式。
 
@@ -81,7 +81,7 @@ doc/
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
 
-当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数与 CLI 参数规则；按必填参数、可选样式、尾部未加引号 in 的顺序解析。CreateCommand 保存图形实例、父 id 和首次同级位置，HistoryManager 调用 execute/undo，经领域插入/摘除恢复原实例与顺序。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。
+当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create/delete/move/scale/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数与 CLI 参数规则；按必填参数、可选样式、尾部未加引号 in 的顺序解析。CreateCommand 保存图形实例、父 id 和首次同级位置，DeleteCommand 保存完整子树及原位置，MoveCommand/ScaleCommand 保存已校验的几何前后状态；HistoryManager 调用 execute/undo，领域接口恢复实例、拓扑或数值。应用层生成成功及恢复摘要。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。
 
 ### 4. PlantUML 组件图
 
@@ -149,7 +149,7 @@ end note
 
 `Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。4B 的统一几何操作由 `SvgDocument` 按唯一拓扑迭代汇总各 Shape 的本地准备结果：叶子经 `GeometryShape` 校验坐标/尺寸，容器本地为空操作，子孙各处理一次。整个子树准备成功后才应用 `GeometryChange`，避免递归调用栈及中途失败造成部分修改。GroupShape 不另存 children；命令无需区分容器与叶子。set 白名单随 4C 接入；删除和重组通过统一子树接口维护索引与归属。XML 生成仍位于 IO 层。
 
-`GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 统一保存快照与执行状态，MoveCommand/ScaleCommand 只提供各自的准备，redo 重用保存结果。数值视图冻结，文字和样式不参与运算；scale 乘全部坐标和尺寸，文本仅有 x/y 数值，不扩大字体，stroke-width 不变。有限下溢为零可接受，非有限结果拒绝；极小倍数的撤销同样恢复原值，不依赖除法。扩展 Shape 未实现相应准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
+`GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 使用局部 **Template Method**：固定快照保存与执行/恢复生命周期，MoveCommand/ScaleCommand 只覆写准备钩子，redo 重用保存结果。数值视图冻结，文字和样式不参与运算；scale 乘全部坐标和尺寸，文本仅有 x/y 数值，不扩大字体，stroke-width 不变。有限下溢为零可接受，非有限结果拒绝；极小倍数的撤销同样恢复原值，不依赖除法。扩展 Shape 未实现相应准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
 
 `group`、`addto` 和 `ungroup` 改变树关系；move/scale 通过多态作用于子树。g 的 set 修改容器自身样式，保留 SVG 继承语义，不覆盖后代显式样式。普通 g 只有在嵌套时允许 ungroup，顶层 g 必须拒绝；未来插件的内部复合图形可通过容器能力契约拒绝解散。
 
@@ -356,7 +356,11 @@ end note
 2. HistoryManager 作为 Command 的调用方，使用同一实例执行/撤销/重做；命令负责恢复，历史负责成功后移动栈项。EditorSession Facade 生成并提交反馈，成功 init 才重置历史。反馈只读复制，错误反馈不会作为历史项保存。
 3. Command/Factory/Registry/Facade 沿用既定职责，没有新增模式或名字分派。完整 Composite 几何操作和其他编辑命令仍待 4B/4C/5 验收；IO 重置目前只接入 init，不把未来文件操作声称为已实现。
 
+阶段 4B 一致性抽样（2026-10-28）：检查 DeleteCommand、GeometryCommand、MoveCommand、ScaleCommand、SvgDocument、Shape、ContainerShape、GeometryShape、GeometryChange、五种叶子与 EditorSession。领域及命令没有应用层、CLI、Node/文件系统 import；命令只依赖领域及 Command 层。字段私有、一类一文件，数值和拓扑返回只读快照；未新增命令名或图形名分派。坐标轴/尺寸角色判断是图形类声明的几何规则，不是按 tag 分派。Composite 的拓扑集中在文档，通过迭代聚合本地变更；与先前递归描述的具体调整已写入模式段及过程记录。set、重组与 IO 尚未实现，不提前计入验收。
+
 ## 质量保证手段
+
+阶段 4B 质量证据：20 文件 314 项（保留原 235 项，新增 79 项），typecheck、pretest 构建、format:check、git diff --check 全部通过。delete 验证完整子树原位/原实例恢复、id 复用和恢复冲突后重试；move/scale 验证六种类型、双端点、2000 层容器、浮点精确恢复、文本/样式/描边宽度保持、末端溢出不产生部分变更、非法参数保留双栈、无变化成功编辑清空 redo，以及混合历史多轮回放。scale 另验证正有限倍数、有限下溢恢复和数值型扩展。源码/编译入口均回放三条新命令；Windows PTY 实际验证中文组操作、非法倍数后 redo、溢出后已有矩形保持原值、删除恢复、init 锁定及 EOF 退出 0。三个实现提交独立推送并通过各自 Windows/Linux CI，精确 SHA/链接见开发方案第 8 节。
 
 阶段 4A 本地与手工证据：14 文件 235 项通过，包含原 189 项、帮助登记约束 1 项、HistoryManager 7 项、历史会话 36 项、源码/编译入口历史回放各 1 项。严格 typecheck、pretest 构建、format:check、git diff --check 通过。历史专项验证失败执行/撤销/重做保留栈且可重试；会话验证六种类型与父关系、查询/失败请求保留双栈、成功编辑清空 redo、成功 init 锁定及失败 init 不改历史。真实入口加入待重做期间词法错误，后续 redo 仍成功。Windows PTY 验证中文文本撤销重做、重复 id 后重做、init 锁定、新编辑解锁和 Ctrl+D 退出码 0。精确提交与双平台 CI 证据见开发方案第 8 节。
 
@@ -374,7 +378,7 @@ end note
 
 后续阶段仍须落实以下证据，不把下述计划写成已通过：
 
-- 扩展后续编辑命令、Composite 移动/缩放和命令失败状态不变性测试；保留已有 id/工厂/父子关系及 Parser、REPL 回归。
+- 扩展 set、重组命令及其失败状态不变性测试；保留已有 Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归。
 - 对每个新增编辑命令验证“执行 → undo → redo”，沿用已建立的 redo 清空、init 后禁止 undo 和错误命令不入栈回归；read/save/canvas 接入时扩展 IO 历史验收。
 - 用含缺失 id、嵌套 g、文本和非法文件的 SVG 做读入测试，验证自动补 id 警告和错误前缀。
 - 对保存结果做 XML 检查，再 read 回来比较画布、层级、属性和文本，验证 round-trip。
