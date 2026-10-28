@@ -6,6 +6,41 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('moves leaves and groups, rejecting overflow without losing redo', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create circle c 100 100 10 in scene',
+        'move c 30 0',
+        'undo',
+        'move c Infinity 0',
+        'redo',
+        'move scene 0 100',
+        'undo',
+        'show c',
+      ].join('\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'circle#c moved to (130,100)\nsvg> circle#c moved back to (100,100)',
+    );
+    expect(result.stdout).toContain(
+      'error: dx must be a finite number\nsvg> circle#c moved to (130,100)',
+    );
+    expect(result.stdout).toContain(
+      'g#scene moved by (0,100)\nsvg> g#scene moved back by (0,-100)',
+    );
+    expect(result.stdout).toContain(
+      'circle#c  parent=g#scene\n  cx=130\n  cy=100\n  r=10',
+    );
+  });
+
   it('deletes and restores a complete subtree through the real input loop', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -99,7 +134,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',

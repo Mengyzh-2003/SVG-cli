@@ -1,10 +1,7 @@
-import { Shape, type ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
-export class CircleShape extends Shape {
-  readonly #cx: number;
-  readonly #cy: number;
-  readonly #r: number;
-
+export class CircleShape extends GeometryShape {
   constructor(
     id: string,
     cx: number,
@@ -12,29 +9,22 @@ export class CircleShape extends Shape {
     r: number,
     style: ShapeStyleOptions = {},
   ) {
-    super(id, style);
-    this.#cx = CircleShape.requireFiniteGeometry(cx, 'cx');
-    this.#cy = CircleShape.requireFiniteGeometry(cy, 'cy');
-    this.#r = CircleShape.requireNonNegativeGeometry(r, 'r');
+    super(id, { cx, cy, r }, { cx: 'x', cy: 'y', r: 'size' }, style);
   }
 
   get type(): string {
     return 'circle';
   }
 
-  override get geometry(): Readonly<Record<string, number>> {
-    return Object.freeze({ cx: this.#cx, cy: this.#cy, r: this.#r });
-  }
-
   get cx(): number {
-    return this.#cx;
+    return this.numberAt('cx');
   }
 
   get cy(): number {
-    return this.#cy;
+    return this.numberAt('cy');
   }
 
   get r(): number {
-    return this.#r;
+    return this.numberAt('r');
   }
 }

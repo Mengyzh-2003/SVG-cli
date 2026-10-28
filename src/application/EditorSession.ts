@@ -6,6 +6,7 @@ import { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
 import { DeleteCommand } from '../commands/DeleteCommand.js';
+import { MoveCommand } from '../commands/MoveCommand.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
 
@@ -57,6 +58,11 @@ export class EditorSession implements CommandExecutor {
       'delete',
       (request) => this.#delete(request),
       () => ['delete <id>'],
+    );
+    this.#dispatcher.register(
+      'move',
+      (request) => this.#move(request),
+      () => ['move <id> <dx> <dy>'],
     );
   }
 
@@ -175,6 +181,44 @@ export class EditorSession implements CommandExecutor {
         redoLines: [`${summary} deleted`],
       }),
     };
+  }
+
+  #move(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length !== 3 || request.args[0]!.value === '') {
+      throw new Error('usage: move <id> <dx> <dy>');
+    }
+    const dx = this.#parseFinite(request.args[1]!.value, 'dx');
+    const dy = this.#parseFinite(request.args[2]!.value, 'dy');
+    const shape = document.require(request.args[0]!.value);
+    const position = shape.position;
+    const summary = `${shape.type}#${shape.id}`;
+    return {
+      status: 'success',
+      lines: this.#history.execute(
+        new MoveCommand(document, shape.id, dx, dy),
+        {
+          undoLines: [
+            position === undefined
+              ? `${summary} moved back by (${-dx},${-dy})`
+              : `${summary} moved back to (${position[0]},${position[1]})`,
+          ],
+          redoLines: [
+            position === undefined
+              ? `${summary} moved by (${dx},${dy})`
+              : `${summary} moved to (${position[0] + dx},${position[1] + dy})`,
+          ],
+        },
+      ),
+    };
+  }
+
+  #parseFinite(raw: string, name: string): number {
+    const value = Number(raw);
+    if (raw.trim() === '' || !Number.isFinite(value)) {
+      throw new Error(`${name} must be a finite number`);
+    }
+    return value;
   }
 
   #initialize(request: CommandRequest): CommandResult {

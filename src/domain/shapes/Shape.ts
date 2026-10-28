@@ -1,3 +1,5 @@
+import type { GeometryChange } from './GeometryChange.js';
+
 export interface ShapeStyleOptions {
   readonly fill?: string;
   readonly stroke?: string;
@@ -46,6 +48,16 @@ export abstract class Shape {
   }
 
   abstract get type(): string;
+
+  /** Optional local anchor for application feedback; groups have no position. */
+  get position(): readonly [number, number] | undefined {
+    return undefined;
+  }
+
+  /** Preparation must not mutate; returned callbacks must not throw. */
+  prepareMove(_dx: number, _dy: number): GeometryChange {
+    throw new Error(`move is not supported for shape: ${this.id}`);
+  }
 
   /** Detached, read-only local geometry; extensions override this view. */
   get geometry(): Readonly<Record<string, number | string>> {

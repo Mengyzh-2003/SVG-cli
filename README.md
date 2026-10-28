@@ -87,6 +87,8 @@ This history example continues an initialized session such as the one above. Fut
 
 Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
 
+`move <id> <dx> <dy>` translates local coordinates, including both endpoints of a line and every descendant of a group. Sizes, text and styles remain unchanged. All candidate coordinates are validated before any change, so overflow in a later descendant leaves the entire group unchanged. Undo/redo restores captured values exactly. A valid zero displacement or move of an empty group is still one edit and clears redo. Leaf summaries show their local anchor (the first endpoint for a line); group summaries show displacement.
+
 `tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
 
 `help` works before `init` and lists the currently registered commands, including the creation syntax for each CLI-capable shape. It accepts no arguments. The command dispatcher and shape factory supply this information from their existing registries; commands scheduled for later stages are added to help when implemented.

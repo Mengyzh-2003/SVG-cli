@@ -1,11 +1,7 @@
-import { Shape, type ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
-export class RectShape extends Shape {
-  readonly #x: number;
-  readonly #y: number;
-  readonly #width: number;
-  readonly #height: number;
-
+export class RectShape extends GeometryShape {
   constructor(
     id: string,
     x: number,
@@ -14,39 +10,31 @@ export class RectShape extends Shape {
     height: number,
     style: ShapeStyleOptions = {},
   ) {
-    super(id, style);
-    this.#x = RectShape.requireFiniteGeometry(x, 'x');
-    this.#y = RectShape.requireFiniteGeometry(y, 'y');
-    this.#width = RectShape.requireNonNegativeGeometry(width, 'width');
-    this.#height = RectShape.requireNonNegativeGeometry(height, 'height');
+    super(
+      id,
+      { x, y, width, height },
+      { x: 'x', y: 'y', width: 'size', height: 'size' },
+      style,
+    );
   }
 
   get type(): string {
     return 'rect';
   }
 
-  override get geometry(): Readonly<Record<string, number>> {
-    return Object.freeze({
-      x: this.#x,
-      y: this.#y,
-      width: this.#width,
-      height: this.#height,
-    });
-  }
-
   get x(): number {
-    return this.#x;
+    return this.numberAt('x');
   }
 
   get y(): number {
-    return this.#y;
+    return this.numberAt('y');
   }
 
   get width(): number {
-    return this.#width;
+    return this.numberAt('width');
   }
 
   get height(): number {
-    return this.#height;
+    return this.numberAt('height');
   }
 }

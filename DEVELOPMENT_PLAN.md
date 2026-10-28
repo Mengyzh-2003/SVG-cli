@@ -61,7 +61,7 @@ Parser 返回命令名与保留 quoted 信息的词元；结构化请求不要�
 ### 3.3 设计模式
 
 - **Command**：从首个 CreateCommand 开始使用；一条编辑一个 undo 单元。execute/undo/redo 使用同一命令对象，redo 重用已保存的执行结果，不重新解析输入。
-- **Composite**：Shape 抽象统一叶子与 GroupShape 的 move/scale/set 契约；容器递归执行几何操作，删除和重组由 SvgDocument 维护子树及 id 索引。g 的公共属性设置保留 SVG 继承语义。
+- **Composite**：Shape 抽象统一叶子与 GroupShape 的几何准备契约；SvgDocument 作为唯一拓扑持有者，迭代汇总子树各节点的多态本地变更，完整校验后统一应用，不在 GroupShape 重复保存 children。删除和重组同样由文档维护子树及 id 索引。g 的公共属性设置保留 SVG 继承语义（set 随 4C 接入）。
 - **Factory/Registry**：ShapeFactory 集中注册六种具体图形，CLI 创建与 SVG 读入复用注册项；未来可新增提供者，本阶段不实现 box。
 - **Facade**：EditorSession 提供稳定执行入口，编排处理器、历史和 IO；不承担具体图形运算或 XML 解析。
 
@@ -182,6 +182,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
+| delete/move 反馈 | delete 撤销显示 restored into svg 或 类型#父id；move 叶子显示本地锚点 moved to / moved back to（line 使用首端点），容器显示 moved by / moved back by。反馈只描述结果，撤销实际恢复保存值，不使用反馈中的逆增量计算 |
 | 默认保存路径 | read 成功记录读入路径；save 显式路径成功后也作为后续默认路径；init 清空路径；init 后首次无参 save 报 error: no file path. use 'save <file.svg>' first |
 | 数值域 | 接受有限浮点与负坐标；尺寸、半径、stroke-width 不得为负，画布宽高及 scale factor 必须为正；参数过多、缺失和非数值一律拒绝 |
 | init 可选尺寸 | init 默认 800×600；只给 w 时 h 取 600；canvas 修改必须同时给 w/h，无参只查询 |
@@ -258,7 +259,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 等待阶段 4B 任务 |
-| 4B delete/move/scale | 进行中 | 4B.1 delete 本地验收中；按三个小模块分别提交 | 无 | 核实 delete 推送/CI 后进入 move |
+| 4B delete/move/scale | 进行中 | 4B.1 `997de0f` 已推送且双平台 CI 通过；4B.2 move 本地验收中 | 无 | 核实 move 推送/CI 后进入 scale |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
@@ -361,3 +362,8 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **模式与职责**：HistoryManager 是 Command 的调用方，redo 复用同一对象；EditorSession Facade 负责摘要和生命周期，命令只负责领域恢复。没有新增命令名/类型名分派，Factory/Registry 沿用；Composite 几何行为尚未进入本次验收。命令自身必须保证失败原子性，历史管理器只保证失败时栈不推进。
 - **发现与修正**：摘要前移一度改变父目标缺失错误，已先校验容器恢复原错误语义；模块表残留“命令结果”表述及未开放历史说明已同步纠正。过程记录只记上述生成物问题，常规进度留在此处。根 README 已补当前历史行为及示例。
 - **阻塞与下一阶段**：无。下一阶段 4B 实现 DeleteCommand、MoveCommand、ScaleCommand，接入现有历史；删除恢复完整子树/父关系/同级位置，几何修改保存原值，覆盖容器递归、非法参数与溢出原子性。4B 内继续分模块推送，本次不开始 4B，不创建 final tag。
+
+### 阶段 4B 模块进度（2026-10-28）
+
+- **4B.1 delete**：`997de0fc5c133d4ce8a07c99b5ddb9f485836cfb` 已独立推送并核实远程 SHA；[CI 40625108180](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40625108180) Windows/Linux completed/success 后才开始移动模块。16 文件 246 项通过，typecheck、pretest 构建、format:check、diff 检查通过。新增子树恢复、身份/属性/父关系/顺序、冲突后重试、混合历史、删除 id 复用、失败保留双栈及源码/编译入口删除会话。
+- **4B.2 move 本地验收**：18 文件 276 项全部通过；typecheck、pretest 构建、format:check、diff 检查通过。GeometryShape 封装数值，GeometryChange 捕获前后值，SvgDocument 迭代准备子树；MoveCommand 复用 GeometryCommand 快照生命周期，EditorSession 生成锚点或增量摘要。覆盖六种类型、双端点、精确浮点恢复、文本/样式保持、末端溢出失败后重试、未支持扩展拒绝、2000 层树和无变化编辑清空 redo；真实两种入口验证需求中的圆与容器移动反馈。推送/CI 尚待本模块提交后核实。

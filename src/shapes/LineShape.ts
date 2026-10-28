@@ -1,11 +1,7 @@
-import { Shape, type ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
-export class LineShape extends Shape {
-  readonly #x1: number;
-  readonly #y1: number;
-  readonly #x2: number;
-  readonly #y2: number;
-
+export class LineShape extends GeometryShape {
   constructor(
     id: string,
     x1: number,
@@ -14,39 +10,31 @@ export class LineShape extends Shape {
     y2: number,
     style: ShapeStyleOptions = {},
   ) {
-    super(id, style);
-    this.#x1 = LineShape.requireFiniteGeometry(x1, 'x1');
-    this.#y1 = LineShape.requireFiniteGeometry(y1, 'y1');
-    this.#x2 = LineShape.requireFiniteGeometry(x2, 'x2');
-    this.#y2 = LineShape.requireFiniteGeometry(y2, 'y2');
+    super(
+      id,
+      { x1, y1, x2, y2 },
+      { x1: 'x', y1: 'y', x2: 'x', y2: 'y' },
+      style,
+    );
   }
 
   get type(): string {
     return 'line';
   }
 
-  override get geometry(): Readonly<Record<string, number>> {
-    return Object.freeze({
-      x1: this.#x1,
-      y1: this.#y1,
-      x2: this.#x2,
-      y2: this.#y2,
-    });
-  }
-
   get x1(): number {
-    return this.#x1;
+    return this.numberAt('x1');
   }
 
   get y1(): number {
-    return this.#y1;
+    return this.numberAt('y1');
   }
 
   get x2(): number {
-    return this.#x2;
+    return this.numberAt('x2');
   }
 
   get y2(): number {
-    return this.#y2;
+    return this.numberAt('y2');
   }
 }

@@ -1,6 +1,7 @@
 import { ContainerShape } from '../shapes/ContainerShape.js';
 import type { Shape } from '../shapes/Shape.js';
 import type { ShapeSubtree } from './ShapeSubtree.js';
+import { GeometryChange } from '../shapes/GeometryChange.js';
 
 interface DocumentNode {
   readonly shape: Shape;
@@ -88,6 +89,15 @@ export class SvgDocument {
 
   insert(shape: Shape, parentId: string | null = null, index?: number): void {
     this.insertSubtree({ shape, children: [] }, parentId, index);
+  }
+
+  /** Prepare every local change before applying any node in the composite. */
+  prepareMove(id: string, dx: number, dy: number): GeometryChange {
+    if (!Number.isFinite(dx)) throw new Error('dx must be a finite number');
+    if (!Number.isFinite(dy)) throw new Error('dy must be a finite number');
+    return GeometryChange.combine(
+      this.walk(id).map((shape) => shape.prepareMove(dx, dy)),
+    );
   }
 
   /** Validates the entire detached tree before changing membership or order. */

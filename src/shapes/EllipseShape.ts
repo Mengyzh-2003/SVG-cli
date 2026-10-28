@@ -1,11 +1,7 @@
-import { Shape, type ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
-export class EllipseShape extends Shape {
-  readonly #cx: number;
-  readonly #cy: number;
-  readonly #rx: number;
-  readonly #ry: number;
-
+export class EllipseShape extends GeometryShape {
   constructor(
     id: string,
     cx: number,
@@ -14,39 +10,31 @@ export class EllipseShape extends Shape {
     ry: number,
     style: ShapeStyleOptions = {},
   ) {
-    super(id, style);
-    this.#cx = EllipseShape.requireFiniteGeometry(cx, 'cx');
-    this.#cy = EllipseShape.requireFiniteGeometry(cy, 'cy');
-    this.#rx = EllipseShape.requireNonNegativeGeometry(rx, 'rx');
-    this.#ry = EllipseShape.requireNonNegativeGeometry(ry, 'ry');
+    super(
+      id,
+      { cx, cy, rx, ry },
+      { cx: 'x', cy: 'y', rx: 'size', ry: 'size' },
+      style,
+    );
   }
 
   get type(): string {
     return 'ellipse';
   }
 
-  override get geometry(): Readonly<Record<string, number>> {
-    return Object.freeze({
-      cx: this.#cx,
-      cy: this.#cy,
-      rx: this.#rx,
-      ry: this.#ry,
-    });
-  }
-
   get cx(): number {
-    return this.#cx;
+    return this.numberAt('cx');
   }
 
   get cy(): number {
-    return this.#cy;
+    return this.numberAt('cy');
   }
 
   get rx(): number {
-    return this.#rx;
+    return this.numberAt('rx');
   }
 
   get ry(): number {
-    return this.#ry;
+    return this.numberAt('ry');
   }
 }

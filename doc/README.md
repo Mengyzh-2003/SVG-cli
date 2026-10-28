@@ -147,7 +147,9 @@ end note
 
 #### Composite：统一容器与叶子操作
 
-`Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。叶子封装几何属性与白名单，g 递归移动/缩放子孙；删除和重组由 `SvgDocument` 通过统一子树操作维护索引及归属。领域对象提供结构化属性视图，XML 生成位于 IO 层。命令不按标签区分容器和叶子。
+`Shape` 是所有图形的共同抽象，`ContainerShape` 提供容器契约，`GroupShape` 是具体实现。4B 的统一几何操作由 `SvgDocument` 按唯一拓扑迭代汇总各 Shape 的本地准备结果：叶子经 `GeometryShape` 校验坐标/尺寸，容器本地为空操作，子孙各处理一次。整个子树准备成功后才应用 `GeometryChange`，避免递归调用栈及中途失败造成部分修改。GroupShape 不另存 children；命令无需区分容器与叶子。set 白名单随 4C 接入；删除和重组通过统一子树接口维护索引与归属。XML 生成仍位于 IO 层。
+
+`GeometryChange` 封装已校验的前后状态及只赋值的 apply/restore；准备阶段允许失败但不得修改模型，应用/恢复阶段不得抛错。`GeometryCommand` 统一保存快照与执行状态，MoveCommand 只提供移动准备，redo 重用保存结果。数值视图冻结，文字和样式不参与移动。扩展 Shape 未实现移动准备时明确拒绝，不能静默跳过；扩展若提供该接口，也必须遵守上述契约，本阶段不承诺任意插件的事务隔离。
 
 `group`、`addto` 和 `ungroup` 改变树关系；move/scale 通过多态作用于子树。g 的 set 修改容器自身样式，保留 SVG 继承语义，不覆盖后代显式样式。普通 g 只有在嵌套时允许 ungroup，顶层 g 必须拒绝；未来插件的内部复合图形可通过容器能力契约拒绝解散。
 
@@ -313,6 +315,12 @@ end note
 - **发现**：为在编辑前生成摘要，初版接线把父 id 直接交给 require，缺失父目标会变成 no such shape，而原 CreateCommand 按容器查询应报 no such container。另发现模块表仍写命令感知“命令结果”，与刚明确的无参 void 契约不一致。
 - **确认**：对照 SvgDocument.require/childrenOf、原 create 错误断言和 Command 接口；缺失与非容器父目标是既有验收要求，不能因摘要职责调整而改变。模块表与模式段交叉核对确认残留表述。
 - **纠正**：应用处理器先验证容器，再生成反馈并交给 HistoryManager；CreateCommand 仍保留自身校验。原错误断言继续通过，新增查询/失败请求保留 undo 与 redo 的会话测试。模块表改为感知领域对象与恢复状态，摘要仅归应用层；同步移除“CLI 未开放历史”的过时说明。
+
+### 2026-10-28：只读几何模型与子树原子移动的衔接
+
+- **发现**：已有叶子只提供 readonly 数字字段和只读视图，不能受控修改；原架构“容器递归执行”若直接逐个改子孙，会在后代溢出时留下部分变更，也容易迫使 GroupShape 复制文档已有的 children。
+- **确认**：检查五种叶子、Shape、GroupShape 与 SvgDocument 的字段归属；构造前部正常、末端极大坐标的组，要求移动失败后所有节点属性、索引和拓扑均与之前相同。0.1 加 0.2 的恢复测试确认逆算不适合作为精确 undo。
+- **纠正**：数值封装收拢到 GeometryShape，具体类声明坐标轴/尺寸并保持原 getter；文档迭代准备整棵子树的多态 GeometryChange，全部校验后统一应用。命令保存前后值供 undo/redo，不做逆算；用 2000 层容器、末端溢出、未支持移动的扩展类型及样式/文本保持验证。同步修正 Composite 的具体协作描述，不重复保存树关系。
 
 ## 一致性自查
 

@@ -24,6 +24,7 @@ describe('registered help', () => {
         'undo',
         'redo',
         'delete <id>',
+        'move <id> <dx> <dy>',
       ],
     });
     expect(session.document).toBeNull();

@@ -1,8 +1,7 @@
-import { Shape, type ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
-export class TextShape extends Shape {
-  readonly #x: number;
-  readonly #y: number;
+export class TextShape extends GeometryShape {
   readonly #text: string;
 
   constructor(
@@ -12,9 +11,7 @@ export class TextShape extends Shape {
     text: string,
     style: ShapeStyleOptions = {},
   ) {
-    super(id, style);
-    this.#x = TextShape.requireFiniteGeometry(x, 'x');
-    this.#y = TextShape.requireFiniteGeometry(y, 'y');
+    super(id, { x, y }, { x: 'x', y: 'y' }, style);
     this.#text = text;
   }
 
@@ -23,15 +20,15 @@ export class TextShape extends Shape {
   }
 
   override get geometry(): Readonly<Record<string, number | string>> {
-    return Object.freeze({ x: this.#x, y: this.#y, text: this.#text });
+    return Object.freeze({ ...super.geometry, text: this.#text });
   }
 
   get x(): number {
-    return this.#x;
+    return this.numberAt('x');
   }
 
   get y(): number {
-    return this.#y;
+    return this.numberAt('y');
   }
 
   get text(): string {
