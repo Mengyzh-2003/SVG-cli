@@ -111,6 +111,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 4A：HistoryManager 接入 CreateCommand，验证 undo/redo、IO 锁定状态与失败不改历史。init 成功清空历史并锁定；新成功编辑建立新的历史。
 
+4A 内部提交点：先独立修正旧 Command 文档和帮助登记约束，再做 4A.1 HistoryManager 及失败重试/IO 锁定单元验收，最后 4A.2 接入 EditorSession 的 create/init 与 CLI undo/redo 会话；每个模块分别推送并核实 CI。Command 沿用构造注入和无参 execute/undo，摘要由应用处理器生成；历史项保存应用反馈，不向领域命令加入终端职责。所有命令注册必须显式传入帮助语法回调。
+
 4B：实现 DeleteCommand、MoveCommand、ScaleCommand；删除保留整棵子树、原父节点和原同级位置；移动缩放保存旧几何状态，避免仅用逆运算导致浮点误差积累。
 
 4C：实现 SetAttributeCommand 和严格的类型属性白名单，恢复时区分“属性不存在”与“显式值”。

@@ -13,13 +13,16 @@ export class CommandDispatcher {
   register(
     name: string,
     handler: CommandHandler,
-    syntax: () => readonly string[] = () => [name],
+    syntax: () => readonly string[],
   ): void {
     if (name.length === 0) {
       throw new Error('command name cannot be empty');
     }
     if (this.#handlers.has(name)) {
       throw new Error(`command already registered: ${name}`);
+    }
+    if (typeof syntax !== 'function') {
+      throw new Error(`command syntax callback is required: ${name}`);
     }
     this.#handlers.set(name, { handler, syntax });
   }

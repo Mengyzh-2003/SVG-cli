@@ -133,7 +133,9 @@ end note
 
 #### Command：编辑行为的统一撤销边界
 
-`Command` 接口至少提供 `execute(context)`、`undo(context)` 和结果摘要。`CreateCommand`、`DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand`、`GroupCommand`、`UngroupCommand`、`AddToCommand`、`ReorderCommand` 分别封装一种编辑行为。
+`Command` 的实际接口为 `execute(): void`、`undo(): void`；文档、目标图形等依赖在构造命令时注入，不再传入 context，也不向命令接口加入终端摘要。redo 对同一命令对象再次调用 execute。`CreateCommand` 已实现这一接口；后续 `DeleteCommand`、`MoveCommand`、`ScaleCommand`、`SetAttributeCommand`、`GroupCommand`、`UngroupCommand`、`AddToCommand`、`ReorderCommand` 继续沿用。
+
+成功摘要由应用层处理器依据已验证参数和目标对象生成，并转换为 `CommandResult`；CLI 只负责统一呈现。阶段 4A 的 HistoryManager 保存命令及应用层提供的撤销/重做反馈，操作成功后才返回相应反馈；不让 commands 反向依赖应用层结果、终端或历史。领域恢复由命令负责，历史层不按命令名判断摘要或操作。
 
 每条编辑命令对应一个 undo 单元。从首次接入 create 开始就走 Command 路径，不先实现一条绕过历史的直接编辑路径。命令保存父节点、同级位置、旧属性或封装快照；先验证完整候选结果再写入。move/scale 恢复旧几何值，不仅使用逆运算，以免浮点误差积累；redo 复用保存结果。`GroupCommand` 即使移动多个图形，也只作为一个命令进入历史栈。
 
@@ -295,6 +297,12 @@ end note
 - **确认**：对照 CommandDispatcher 注册表、ShapeFactory 的六种 schema 及当前 EditorSession 接线，确认本阶段实际只具备 init/create/tree/show/help；最终需求的“全部命令”须随后续阶段补齐。
 - **纠正**：语法与处理器/图形 parser 保存在原有注册项，内置 create 语法由 schema 生成；help 动态枚举当前可执行注册信息并注明阶段范围。用后注册 marker、无 CLI parser 类型、未初始化 help、错误参数和两种入口会话验证同源行为及状态不变，不新增名字分派。
 - **自查修正**：初版扩展帮助缺省为 `<id> [parameters]`，但注册回调可能要求必填参数，无法从任意 parser 推断。改为明确提示附加语法未提供；注册者可传入准确语法，测试覆盖两种情况，不把未知参数错误标为可选。
+
+### 2026-10-28：复核 Command 契约与帮助登记约束
+
+- **发现**：架构模式段仍写 execute(context)/undo(context) 与命令摘要，实际 Command.ts 和 CreateCommand.ts 已采用构造注入、无参方法；CommandDispatcher 的 syntax 默认值只回显名称，后续带参命令遗漏语法时不会被发现。
+- **确认**：对照接口、构造器及 EditorSession 的成功结果生成位置，并检查当前五个注册项均已显式传入语法；这是文档偏差和后续登记风险，不是当前命令运行缺陷。
+- **纠正**：文档以无参接口为准，明确应用处理器生成摘要，4A 的历史项保存应用层反馈。移除 syntax 默认参数，类型层要求显式登记，同时对运行时缺失回调拒绝且不占用名称；测试验证漏填不能编译、不能注册，随后可正确登记。保留回调的动态求值，不额外引入帮助清单或名字分派。
 
 ## 一致性自查
 
