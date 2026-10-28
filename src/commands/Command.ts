@@ -1,4 +1,4 @@
-/** One reversible editing operation; history integration is added in stage 4. */
+/** One atomic reversible edit. Failed execute/undo must preserve domain state. */
 export interface Command {
   execute(): void;
   undo(): void;

@@ -254,7 +254,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
 | 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 等待阶段 4A 任务 |
-| 4A History | 未开始 | — | 无，依赖 3C | 按阶段 4A 验收 |
+| 4A History | 进行中 | 契约/帮助优化 `befdf88` 已推送且双平台 CI 通过；4A.1 历史模块本地验收中 | 无 | 4A.1 推送并核实 CI 后接入 4A.2 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
