@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5C、6A 已完成，正在执行 6B.1。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；下一阶段为 6C，尚未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -48,7 +48,7 @@
 
 src/main.ts 是唯一组合根，可以依赖上述模块用于装配。测试和入口以外按架构文档的单向依赖规则执行。可先建立必要目录，不添加只用于占位的空类。
 
-当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。delete/move/scale/set/group/addto/ungroup/front/back 同样由应用处理器校验参数和生成摘要，经历史管理器执行各自命令；领域层负责子树摘除/恢复、几何/属性准备及原子拓扑变更。undo/redo 经历史管理器复用命令，成功 init 清空并锁定历史；IO 后续接入 Facade。空行/整行注释全部交由 Parser；词法错误不调用执行器。
+当前实际接线为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。结构化 CommandRequest/CommandToken 与 CommandExecutor 位于 application；create 由 ShapeFactory 同一注册项解析参数，再由 HistoryManager 执行 CreateCommand。delete/move/scale/set/group/addto/ungroup/front/back 同样由应用处理器校验参数和生成摘要，经历史管理器执行各自命令；领域层负责子树摘除/恢复、几何/属性准备及原子拓扑变更。undo/redo 经历史管理器复用命令；init/read/save 成功后清空并锁定历史。Facade 已接入 Reader/Writer 与文件适配器，REPL 等待异步读写完成后再处理下一行。空行/整行注释全部交由 Parser；词法错误不调用执行器。
 
 ### 3.2 主流程与分派限制
 
@@ -148,6 +148,8 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 6B.2：接入 `EditorSession` 的 read/save 命令及路径上下文。新文档完整读取、验证成功后才替换当前文档、记录路径并按文档命令规则重置历史；保存完成目标替换后才更新默认保存路径与历史状态。任一解析、读取、写入或替换失败均保留原文档、路径与历史。
 
+异步应用边界：CommandHandler、CommandDispatcher.dispatch 与 EditorSession.execute 返回 `CommandResult | Promise<CommandResult>`，同步编辑保持既有行为，REPL 统一 await。Facade 捕获同步异常与异步拒绝；异步请求挂起期间拒绝通过应用入口发起的重叠调用，返回 `command in progress. wait for completion`，无论成功失败均释放执行门。这是会话串行约束，不承诺绕过 Facade 直接修改领域对象的并发安全。
+
 6C：补齐 canvas 查询与修改以及所有文档命令的历史规则；接入 read/save 完整 CLI 回放。
 
 验收：显式 id 重复拒绝、自动 id 不与后续显式 id 冲突、每个补全产生规定 warning；读入失败保留当前文档/路径/历史。文本含中文、引号、&、<、> 可保存读回；fill/stroke 省略时保持属性缺省，不写入人为默认值。保存后能在浏览器显示，并读回相同尺寸、顺序、结构、属性和文本。
@@ -236,7 +238,7 @@ GitHub Actions 从阶段 1 起对每次 push 和 pull_request 执行；矩阵为
 
 ### 6.2 XML 输入与资源边界
 
-这些是本工具额外采用的输入约束，不修改课程原需求。6A 已实现内存解析限制并在根 README 公开；文件累计字节限制及应用状态保持在 6B/6C 接入，不能把内存验收视为文件会话已通过。
+这些是本工具额外采用的输入约束，不修改课程原需求。6A 已实现内存解析限制并在根 README 公开；6B 已接入文件累计字节限制与 read/save 失败后的应用状态保持，canvas 与完整文档命令历史留待 6C 验收。
 
 - 禁止 DTD、DOCTYPE 和自定义实体声明；不解析外部实体、不启用 XInclude、不访问输入中声明的网络或本地文件资源。允许 XML 预定义实体和合法数字字符引用。选择明确支持此配置的库；不能仅凭“默认安全”判断，必须核对其行为并测试。
 - 初始资源预算：文件及内存解码入口均限制 UTF-8 输入不超过 5 MiB（5 × 1024 × 1024 字节）；元素嵌套深度不超过 128（svg 为第 1 层），元素总数不超过 50,000（含根 svg）。阶段 6A 在选库时用边界 fixture 复核并确定常量；如需调值，先写明性能证据并同步本方案、测试和 README，不能留作无上限。
@@ -281,8 +283,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
-| 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 已进入 6B.1 |
-| 6B 文件与路径 | 进行中 | 6B.1 `71e2361da7cacb274fcd1b97a793df5610da3d3d` 已推送并核实远端 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428) Windows/Linux 均成功；34 文件 675 项及本地质量检查通过 | 无 | 开始 6B.2 read/save 会话接线 |
+| 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 6B 已完成 |
+| 6B 文件与路径 | 完成 | 6B.1 `71e2361`、6B.2 `4ef5572` 分别推送并核实 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428)、[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) Windows/Linux 均成功；36 文件 706 项、本地质量门槛及交互验收通过，详见下文 | 无 | 下一阶段 6C canvas 与完整文档历史 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
 
@@ -460,3 +462,13 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **本地验收**：34 个测试文件、675 项通过（较 6A 增加 9 项）；9 项专测覆盖 exact 5 MiB、多字节 UTF-8 边界、严格解码、路径换行、缺失文件、unicode 路径、目标创建/替换、实际替换目录失败及注入的部分写入/替换失败。后两类失败均核实旧内容不变且无临时文件。`npm test`（含构建）、`npm run typecheck`、`npm run format:check`、`git diff --check` 均通过。
 - **远程验收**：实现提交 `71e2361da7cacb274fcd1b97a793df5610da3d3d` 已推送，SSH `ls-remote` 与提交精确一致；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428) 对应该 SHA，Windows/Linux 均完成并成功。
 - **边界与后续**：`SvgFileStore` 仅做文件文本适配，尚不解析 SVG、不修改默认路径/文档/历史，也没有接入 REPL；这些属于 6B.2。写入使用 same-directory rename 实现替换，具体原子性受目标文件系统及平台 rename 语义约束。本阶段没有新增设计模式或标签分派。
+- **文档验收**：记录提交 `1be6a8e2cd0b42d8d9dfc7dcff80c192e357e813` 已推送；[CI 40668681495](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40668681495) Windows/Linux 均成功，随后进入 6B.2。
+
+### 阶段 6B.2 执行记录（2026-10-28）
+
+- **实现**：EditorSession 显式注册 read/save，复用同一 ShapeFactory 的 Reader 与文件适配器。read 在候选文档完整读取、验证后才发布文档、默认路径和 warnings；save 在序列化及文件替换成功后才更新路径。两者成功后清空并锁定 undo/redo，下一次成功编辑建立新历史。read/显式 save 成功记录路径，无参 save 复用默认路径，成功 init 清空路径。
+- **失败行为与异步边界**：读取、XML/SVG/资源错误统一为 cannot read file，序列化/写入错误统一为 cannot write file；失败保留原文档、路径和双栈，不发布补 id 警告。应用边界支持同步结果或 Promise，统一处理异步拒绝；IO 挂起时拒绝重叠应用请求，结束后释放。同步编辑 Command 不改契约，文件命令不进入可撤销命令栈。
+- **本地验收**：36 文件 706 项通过，保留原 675 项，新增文件会话 28、Dispatcher 异步转发 1、源码/编译入口各 1 项；typecheck、pretest 构建、format:check、git diff --check 通过。覆盖真实文件、默认路径、错误映射、警告发布时机、文件/解析/资源/写入/替换失败后的状态保持、延迟 IO 及执行门恢复。Windows 跨盘测试路径误用 join 的问题和修正只在过程记录说明。
+- **手工验收**：Windows PTY 编译入口执行 init/create/save/undo/read/undo/move/undo/redo；读写后按规定报 IO 历史锁定，成功编辑后恢复撤销重做。缺失文件 read 失败后，无参 save 仍使用原默认路径；Ctrl+D 正常退出，退出码 0。浏览器显示与 canvas 留待 6C，未将它们计入本阶段已通过项。
+- **远程验收**：实现提交 `4ef55729998aa613816ffec88a24b57889efa54f` 已推送，SSH ls-remote 与其精确一致；[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) 的 Windows/Linux check runs 均为 completed/success，head_sha 均对应本实现。GitHub 页面连接超时后，通过公开 check-runs API 取得精确结果。
+- **架构与下一步**：Facade 负责 IO 编排、路径、历史和输出，文件适配器不持有会话；Command、Composite、Factory/Registry 沿用既有职责，无新增名字分派或设计模式。根 README、架构、过程记录与方案同步。6B 完成，无阻塞；下一阶段 6C 实现 canvas 查询/修改、尺寸与 viewBox 同步、完整文档历史和浏览器预览验收。本轮停在 6B，不实现 box、不创建 final tag；本次文档提交自身 SHA 与 CI 在阶段报告核实，避免自引用。

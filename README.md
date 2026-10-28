@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B.1 adds bounded UTF-8 file operations, with REPL read/save and history integration in 6B.2 and canvas editing in 6C. `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Canvas editing remains in 6C. `box` is outside the current project scope.
 
 ## Requirements
 
@@ -60,7 +60,7 @@ text#label  parent=g#scene
 svg>
 ```
 
-End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. The document is currently held in memory; save/read are not connected yet. The input loop supports CRLF and LF input and a final line without a trailing newline. Injected-executor presentation tests are retained alongside real creation/query sessions.
+End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. Use `save` and `read` to persist and restore the document. The input loop supports CRLF and LF input and a final line without a trailing newline. Commands are awaited in input order, including file operations.
 
 Double quotes enclose a complete token and preserve spaces, Chinese text and empty strings. Inside double quotes, `\"` becomes `"` and `\\` becomes `\`; other backslash sequences remain literal, including ordinary Windows path separators. A literal backslash immediately before a closing quote must be doubled. Unquoted backslashes remain literal. Partial or adjacent quoted-token concatenation is rejected. Single quotes, semicolons and `#` inside arguments are ordinary characters; there are no inline comments or shell command chains.
 
@@ -83,7 +83,7 @@ svg> redo
 g#example created
 ```
 
-This history example continues an initialized session such as the one above. Future read/save/canvas operations will share the IO reset rule when implemented.
+This history example continues an initialized session such as the one above. Successful `init`, `read` and `save` clear both history stacks and lock undo/redo until the next successful edit. Failed file operations preserve history. Canvas operations will share these rules in 6C.
 
 Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
 
@@ -180,9 +180,24 @@ redo
 tree
 ```
 
-## SVG and file support in stages 6A–6B.1
+## SVG and file support in stages 6A–6B
 
-`SvgReader.read(source)` returns a fresh `SvgDocument` and warnings, and `SvgWriter.write(document)` returns UTF-8 XML text. `SvgFileStore.read(path)` reads at most 5 MiB plus one boundary byte and strictly decodes UTF-8. `SvgFileStore.write(path, source)` writes a unique temporary file beside the destination, syncs and closes it, then replaces the destination; failures preserve the previous file and clean up the temporary file. These APIs are under `src/io/` and do not change session history. REPL `read`, `save`, path context and `canvas` are still pending.
+`read <file.svg>` loads a complete validated SVG as the current document, even before `init`. Only a successful read publishes the new document, default path and missing-id warnings. `save [file.svg]` saves the current document, reporting the number of shapes including groups and descendants but excluding the root svg. Quote paths containing spaces; relative paths use the process working directory. Successful read and explicit save set the default path for later `save`; successful `init` clears it. Without a document, save reports `no document. use 'init' or 'read' first`; without a default path it reports `no file path. use 'save <file.svg>' first`. Both errors receive the usual `error:` prefix.
+
+```text
+svg> init 400 300
+canvas 400x300 created
+svg> create circle dot 50 50 20 red
+circle#dot created
+svg> save "my diagram.svg"
+saved to my diagram.svg (1 elements)
+svg> undo
+error: undo not allowed after io command
+svg> read "my diagram.svg"
+read my diagram.svg (1 elements)
+```
+
+`SvgReader.read(source)` returns a fresh `SvgDocument` and warnings, and `SvgWriter.write(document)` returns UTF-8 XML text. `SvgFileStore.read(path)` reads at most 5 MiB plus one boundary byte and strictly decodes UTF-8. `SvgFileStore.write(path, source)` writes a unique temporary file beside the destination, syncs and closes it, then replaces the destination; failures preserve the previous file and clean up the temporary file. Replacement atomicity depends on the target filesystem's rename semantics. These IO APIs do not manage history; `EditorSession` updates state only after success. Invalid XML, unsupported SVG, resource limits and read failures become `error: cannot read file: <path>`; serialization and write failures become `error: cannot write file: <path>`. Failures preserve the current document, default path and both history stacks and do not publish missing-id warnings. `canvas` is still pending in 6C.
 
 Supported elements are `svg` at the root and `rect`, `circle`, `ellipse`, `line`, `text` and `g` below it, with SVG namespace prefixes or wholly unnamespaced input. A document must use one namespace mode consistently: SVG-namespace and unnamespaced elements cannot be mixed. Geometry accepts finite unitless SVG numbers, including decimals and exponents; units such as `px` and `%` are rejected. Omitted geometry defaults to zero except that omitted `ellipse` `rx`/`ry` retain SVG's `auto` behavior; an explicitly supplied zero remains zero. Omitted canvas dimensions use 800 by 600. Canvas dimensions and viewBox dimensions must be positive. Shape sizes and stroke width must be nonnegative. Missing ids are assigned in document order after reserving every explicit id, with one warning per assignment. Empty or duplicate explicit ids are rejected, including conflicts with an explicit root id.
 
@@ -196,6 +211,6 @@ Preserving extra attributes is not SVG sanitization. Event attributes, URLs and 
 
 ## Quality checks
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 34 test files contain 675 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands, SVG decoding/serialization and real creation/query/help/history sessions through both source and compiled entry points. File-store tests cover actual-byte limits, strict UTF-8, Unicode paths and chunk boundaries, stable errors, same-directory replacement, old-file preservation and temporary cleanup after failures. Other coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution. SVG tests cover all six shapes, namespaces after reparenting, deterministic ids, Unicode/entities/whitespace, repeated round-trips, invalid XML and parsing limits; local HTTP and filesystem spies verify that external resources are not resolved.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 36 test files contain 706 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands, SVG decoding/serialization and real creation/query/help/history sessions through both source and compiled entry points. File-session and source/compiled CLI tests cover successful and failed IO, default paths, delayed state publication, overlapping application calls and history preservation. File-store tests cover actual-byte limits, strict UTF-8, Unicode paths and chunk boundaries, stable errors, same-directory replacement, old-file preservation and temporary cleanup after failures. Other coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution. SVG tests cover all six shapes, namespaces after reparenting, deterministic ids, Unicode/entities/whitespace, repeated round-trips, invalid XML and parsing limits; local HTTP and filesystem spies verify that external resources are not resolved.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.
