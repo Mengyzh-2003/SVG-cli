@@ -182,6 +182,38 @@ export class SvgDocument {
     return this.#prepareTreeChange(after, roots);
   }
 
+  /** Move one existing subtree to a container's end, including same-parent moves. */
+  prepareAddTo(containerId: string, id: string): TreeChange {
+    this.#requireContainer(containerId);
+    const node = this.#requireNode(id);
+    let ancestor: string | null = containerId;
+    while (ancestor !== null) {
+      if (ancestor === id) {
+        throw new Error(
+          containerId === id
+            ? `cannot add a container into itself: ${id}`
+            : `cannot add a container into its own descendant: ${id}`,
+        );
+      }
+      ancestor = this.#requireNode(ancestor).parentId;
+    }
+    const after = new Map<string, DocumentNode | undefined>();
+    let roots: string[] | undefined;
+    if (node.parentId === null) {
+      roots = this.#roots.filter((child) => child !== id);
+    } else {
+      const oldParent = this.#requireNode(node.parentId);
+      after.set(node.parentId, {
+        ...oldParent,
+        children: oldParent.children.filter((child) => child !== id),
+      });
+    }
+    const target = after.get(containerId) ?? this.#requireNode(containerId);
+    after.set(containerId, { ...target, children: [...target.children, id] });
+    after.set(id, { ...node, parentId: containerId });
+    return this.#prepareTreeChange(after, roots);
+  }
+
   /** Validates the entire detached tree before changing membership or order. */
   insertSubtree(
     tree: ShapeSubtree,
@@ -301,6 +333,7 @@ export class SvgDocument {
     ) {
       throw new Error('document structure changed: svg');
     }
+    this.#validateProjectedParents(target);
     const prepared = [...target].map(
       ([id, node]) =>
         [
@@ -329,6 +362,32 @@ export class SvgDocument {
       left.length === right.length &&
       left.every((id, index) => id === right[index])
     );
+  }
+
+  /** A deeper ancestor may have moved since preparation without touching a record. */
+  #validateProjectedParents(
+    target: ReadonlyMap<string, DocumentNode | undefined>,
+  ): void {
+    const verified = new Set<string>();
+    for (const [id, node] of target) {
+      if (node === undefined) continue;
+      const path = new Set<string>();
+      let current: string | null = id;
+      while (current !== null && !verified.has(current)) {
+        if (path.has(current)) {
+          throw new Error(`document structure changed: ${current}`);
+        }
+        path.add(current);
+        const projected: DocumentNode | undefined = target.has(current)
+          ? target.get(current)
+          : this.#nodes.get(current);
+        if (projected === undefined) {
+          throw new Error(`document structure changed: ${current}`);
+        }
+        current = projected.parentId;
+      }
+      for (const ancestor of path) verified.add(ancestor);
+    }
   }
 
   #requireNode(id: string): DocumentNode {

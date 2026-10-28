@@ -10,6 +10,7 @@ import { MoveCommand } from '../commands/MoveCommand.js';
 import { ScaleCommand } from '../commands/ScaleCommand.js';
 import { SetAttributeCommand } from '../commands/SetAttributeCommand.js';
 import { GroupCommand } from '../commands/GroupCommand.js';
+import { AddToCommand } from '../commands/AddToCommand.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { DocumentFormatter } from './DocumentFormatter.js';
 import { HistoryManager } from './HistoryManager.js';
@@ -82,6 +83,11 @@ export class EditorSession implements CommandExecutor {
       'group',
       (request) => this.#group(request),
       () => ['group <newGid> <id1> [id2 ...]'],
+    );
+    this.#dispatcher.register(
+      'addto',
+      (request) => this.#addTo(request),
+      () => ['addto <gid> <id>'],
     );
   }
 
@@ -313,6 +319,37 @@ export class EditorSession implements CommandExecutor {
         undoLines: [`${summary} removed; ${ids.length} children restored`],
         redoLines: [`${summary} created with ${ids.length} children`],
       }),
+    };
+  }
+
+  #addTo(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (
+      request.args.length !== 2 ||
+      request.args.some((arg) => arg.value === '')
+    ) {
+      throw new Error('usage: addto <gid> <id>');
+    }
+    const containerId = request.args[0]!.value;
+    const id = request.args[1]!.value;
+    document.childrenOf(containerId);
+    const container = document.require(containerId);
+    const shape = document.require(id);
+    const parent = document.parentOf(id);
+    const summary = this.#formatter.identity(shape);
+    return {
+      status: 'success',
+      lines: this.#history.execute(
+        new AddToCommand(document, containerId, id),
+        {
+          undoLines: [
+            `${summary} restored into ${parent === null ? 'svg' : this.#formatter.identity(parent)}`,
+          ],
+          redoLines: [
+            `${summary} added to ${this.#formatter.identity(container)}`,
+          ],
+        },
+      ),
     };
   }
 

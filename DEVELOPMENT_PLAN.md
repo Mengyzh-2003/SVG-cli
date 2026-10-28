@@ -185,6 +185,7 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 |---|---|
 | group 的新父节点与输入顺序 | 选择项同父时，新 g 放在最早被选节点的位置；跨父时新 g 挂根末尾。子节点按变更前文档深度优先遍历顺序排列，不以参数排列顺序重排；undo 精确恢复每个原位置 |
 | group 数量与反馈 | 接受至少一个已有节点，空组使用 create g；语法 group <newGid> <id1> [id2 ...]。成功/重做沿用需求示例 g#id created with N children；撤销显示 g#id removed; N children restored，准确描述恢复所有原父位置，不等同于受顶层限制的 ungroup 命令 |
+| addto 错误与反馈 | 先校验目标容器，再校验源节点；自身/后代成环分别报 cannot add a container into itself: id / cannot add a container into its own descendant: id。成功/重做显示 类型#id added to 类型#目标，撤销显示 类型#id restored into svg 或 类型#原父；本地属性不做补偿 |
 | 重复选择和 addto 同父 | group 重复 id 拒绝；addto 到当前父容器仍按需求移到末尾，恢复时保留原位置 |
 | 没有可用历史 | 未初始化先报 no document；IO 锁定优先报指定错误；其余空栈分别报 error: nothing to undo / error: nothing to redo |
 | undo/redo 参数与反馈 | 均不接受参数；先检查文档，再检查参数数量，合法请求才检查 IO 锁/栈。撤销 create 输出 类型#id removed，重做复用首次创建摘要（含父容器）；反馈由应用层生成，领域命令不返回终端结果 |
@@ -269,7 +270,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 已完成阶段 4B |
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
-| 5A group/addto | 进行中 | 5A.1 本地 24 文件 420 项通过；推送/CI 待核实 | 无 | 5A.1 远程验收后进入 5A.2 |
+| 5A group/addto | 进行中 | 5A.1 已推送且双平台 CI 通过；5A.2 本地 26 文件 456 项通过，远程待验收 | 无 | 推送 5A.2 并核实 CI 后收尾 |
 | 5B ungroup | 未开始 | — | 无，依赖 5A | 按阶段 5B 验收 |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
@@ -399,4 +400,6 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 - **5A.1 group 本地验收**：24 文件 420 项通过；typecheck、pretest 构建、format:check、git diff --check 通过。新增 TreeChange 与 SvgDocument.prepareGroup、GroupCommand 和应用层注册；按变更前文档顺序收编，同父插入最早位置，跨父放根末尾。命令保存受影响拓扑，校验完成后统一写入，支持精确恢复、冲突后重试及原实例保持。
 - **专项证据**：同父根级/嵌套、非连续选择、逆序参数、跨父混合深度、单节点、重复/缺失/祖先选择、占用 id/实例、准备不写入、冻结查询、撤销/重做前结构变化、2000 层树；会话验证错误/查询保留 redo、新编辑清空 redo、init 锁定和 group/move/scale/set/delete 混合历史；源码与编译入口各回放一次。Windows PTY 验证中文、跨父组合、需求冲突错误、一次 undo 恢复原父及 redo，Ctrl+D 正常退出。
-- **远程状态**：本模块准备独立提交推送，精确 SHA/CI 将在后续记录核实；此时不将 5A 标为完成。下一步为远程验收，通过后开发 5A.2 addto。
+- **5A.1 远程核实**：`f81defa1d99982bc4d7045362358e0384536f2b4` 已独立推送，ls-remote 与本地 HEAD 一致；[CI 40633888614](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40633888614) Windows/Linux completed/success 后开始 addto。
+- **5A.2 addto 本地验收**：26 文件 456 项通过，typecheck、pretest 构建、format:check、diff 检查通过。AddToCommand 复用 TreeChange，支持叶子/整棵子树跨父收编、移入祖先、同父移至末尾、已在末尾仍计入历史；错误保留树、索引、属性与历史。新增 36 项回归覆盖错误边界、混合历史、重试、深树和源码/编译入口。远程 SHA/CI 待本模块推送后核实，阶段暂不标完成。
+- **5A.2 手工证据**：Windows PTY 运行编译入口，中文 text 随 branch 整棵收编；一次 undo 恢复 scene，成环错误后 redo 仍成功；同父 addto 把 text 移至 circle 之后，undo 恢复 text/circle 原序。Ctrl+D 退出码 0。间接环回归的失败复现与修正已记入最终文档过程记录。

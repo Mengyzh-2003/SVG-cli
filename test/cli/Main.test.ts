@@ -6,6 +6,60 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('reparents subtrees, reorders siblings and retains redo across cycle errors', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'init',
+        'create g scene',
+        'create g branch in scene',
+        'create text t 1 2 "中文" in branch',
+        'create g target',
+        'addto target branch',
+        'undo',
+        'addto branch scene',
+        'redo',
+        'show t',
+        'addto branch target',
+        'show branch',
+        'undo',
+        'show branch',
+        'create circle c 1 2 3 in branch',
+        'addto branch t',
+        'tree branch',
+        'undo',
+        'tree branch',
+      ].join('\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'g#branch added to g#target\nsvg> g#branch restored into g#scene',
+    );
+    expect(result.stdout).toContain(
+      'error: cannot add a container into its own descendant: scene\nsvg> g#branch added to g#target',
+    );
+    expect(result.stdout).toContain(
+      'text#t  parent=g#branch\n  x=1\n  y=2\n  text="中文"',
+    );
+    expect(result.stdout).toContain(
+      'error: cannot add a container into its own descendant: target\nsvg> g#branch  parent=g#target',
+    );
+    expect(result.stdout).toContain(
+      'g#branch restored into g#scene\nsvg> g#branch  parent=g#scene',
+    );
+    expect(result.stdout).toContain(
+      'g#branch\n├── circle#c cx=1 cy=2 r=3\n└── text#t x=1 y=2 text="中文"',
+    );
+    expect(result.stdout).toContain(
+      'g#branch\n├── text#t x=1 y=2 text="中文"\n└── circle#c cx=1 cy=2 r=3',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(2);
+  });
+
   it('groups subtrees, reports the required ancestor error and restores in one undo', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -179,7 +233,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -292,7 +346,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
