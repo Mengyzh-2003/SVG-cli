@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C 已完成，4A 正在接入历史与会话。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C 和 4A 已完成，下一阶段为 4B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -254,8 +254,8 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 2 词法 Parser | 完成 | 2A `99b3908`、2B `ca87dcf` 分别推送并核实 SHA；[2A CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080)、[2B CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) Windows/Linux 均通过；44 项测试及交互验收通过 | 无 | 已完成阶段 3A |
 | 3A 领域与工厂 | 完成 | 3A.1 `34de27b`、3A.2 `1db5e7f`、3A.3 `45aa8c8` 已分别推送并核实 SHA；三个实现提交的 Windows/Linux CI 均通过（链接见下文）；91 项测试及全部本地质量检查通过 | 无 | 已进入阶段 3B |
 | 3B init/create Command | 完成 | 3B.1 `3659408` + 文档 `f16c816` 已推送，[CI 40472518602](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40472518602) 通过；3B.2 `7854c52` 独立推送，[CI 40473725887](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40473725887) 双平台通过；156 项测试及手工验收通过 | 无 | 已进入阶段 3C |
-| 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 等待阶段 4A 任务 |
-| 4A History | 待验收 | 优化 `befdf88`、4A.1 `0df2526` 已分别推送且双平台 CI 通过；4A.2 本地 235 项及交互验收通过 | 无 | 核实 4A.2 推送与 CI 后记录完成 |
+| 3C tree/show/help | 完成 | 3C.1 `53ab90c`、3C.2 `b395131` 分别推送并核实 SHA；[查询 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476152693)、[帮助 CI](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40476788895) 双平台通过；189 项测试、质量检查及 Windows 交互验收通过 | 无 | 已完成阶段 4A |
+| 4A History | 完成 | 优化 `befdf88`、4A.1 `0df2526`、4A.2 `739e8df` 已分别推送并核实 SHA/双平台 CI；235 项测试及交互验收通过，详见下文 | 无 | 等待阶段 4B 任务 |
 | 4B delete/move/scale | 未开始 | — | 无，依赖 4A | 按阶段 4B 验收 |
 | 4C set | 未开始 | — | 无，依赖 4B | 按阶段 4C 验收 |
 | 5A group/addto | 未开始 | — | 无，依赖 4C | 按阶段 5A 验收 |
@@ -347,3 +347,15 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **模式与偏差**：复用 Factory/Registry、EditorSession Facade 和领域抽象；格式化职责留应用层，没有新增 Strategy 或标签分派。查询不构造编辑 Command；history 尚未实现，不能声称已验证查询保留 undo/redo。显示采用规范 width/height 和每属性一行，需求未规定的排版决策已写入第 5.2 节。help 仅列当前全部已实现命令，最终阶段须覆盖完整需求命令集。
 - **发现与修正**：已有 getter 缺少统一显示入口，直接读取具体类型会违反分派约束；属性视图和多态已纠正。初版扩展帮助把未知参数显示为可选，改为语法未提供提示并测试。过程记录及实际 import 抽样已更新 doc/README.md；根 README 同步当前命令与可回放示例。
 - **阻塞与下一阶段**：无。4A 接入 HistoryManager 和 CLI undo/redo，建立“成功编辑入栈、失败不改历史、undo/redo 成功后移动栈项、撤销后新编辑清空 redo、查询保留历史、成功 init 清空并锁定直到下一次成功编辑”的回归；delete/move/scale/set 留后续阶段。
+
+### 阶段 4A 验收记录（2026-10-28）
+
+- **状态与开发顺序**：完成。先审查并修正 Command 契约/帮助登记，再实现 4A.1，最后接入 4A.2；每个模块独立提交、推送、核实远程 SHA 和双平台 CI 后才进入下一个。此验收记录另作小型文档提交，其自身推送及 CI 在阶段报告核实。
+- **优化提交**：`befdf883c018da9492b7fd0be03ff2aae306ed83`；[CI 40619565754](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40619565754) Windows/Linux completed/success。文档对齐构造注入、无参 execute/undo；应用层生成摘要，帮助语法回调必须显式登记，缺失时类型检查及运行时均拒绝。190 项测试通过。
+- **4A.1 历史模块**：`0df252637570761410b2a2837175ea44063d8a9a`；[CI 40619961473](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40619961473) Windows/Linux completed/success。HistoryManager 管理命令与只读反馈、双栈和 IO 锁；成功后才推进栈状态。7 项专项测试覆盖 LIFO、原实例/顺序、多轮重做、失败重试、redo 分支清空及 IO 清栈/解锁，本地当时 197 项通过。
+- **4A.2 会话接线**：`739e8df9058776430c77ae43f4235803e6a3744b`；[CI 40620604308](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40620604308) Windows/Linux completed/success。create 统一经 HistoryManager 执行 CreateCommand；init 候选构造成功后才替换并锁定历史。新增无参 undo/redo 注册与帮助，普通空栈、无文档及 IO 锁定错误均按方案处理。2026-10-28 用 ls-remote 核实三次模块推送的 origin/main 与对应本地 HEAD 一致。
+- **本地验收**：Windows、Node.js 24.15.0 / npm 11.12.1；typecheck、npm test（含 pretest 构建）、format:check、git diff --check 均通过。14 文件 235 项：原 189 项全部保留，登记约束 1 项、历史 7 项、会话 36 项、两种真实入口新增 2 项。会话覆盖六种图形根级/组内恢复、嵌套顺序、查询/失败请求保留双栈、失败 init 保留文档/历史、成功 init 清空双栈及下一成功编辑解锁；入口回放覆盖待重做期间词法失败后仍可 redo、CRLF 和末行 EOF。
+- **手工验收**：Windows PTY 运行 node dist/main.js，验证未初始化 undo、init 后 redo 锁定、中文文本 undo/redo、重复 id 后仍能 redo、show 实际 parent、新 init 锁定及新编辑重新建立历史；最后 tree 只显示新文档 fresh，Ctrl+D 退出码 0。
+- **模式与职责**：HistoryManager 是 Command 的调用方，redo 复用同一对象；EditorSession Facade 负责摘要和生命周期，命令只负责领域恢复。没有新增命令名/类型名分派，Factory/Registry 沿用；Composite 几何行为尚未进入本次验收。命令自身必须保证失败原子性，历史管理器只保证失败时栈不推进。
+- **发现与修正**：摘要前移一度改变父目标缺失错误，已先校验容器恢复原错误语义；模块表残留“命令结果”表述及未开放历史说明已同步纠正。过程记录只记上述生成物问题，常规进度留在此处。根 README 已补当前历史行为及示例。
+- **阻塞与下一阶段**：无。下一阶段 4B 实现 DeleteCommand、MoveCommand、ScaleCommand，接入现有历史；删除恢复完整子树/父关系/同级位置，几何修改保存原值，覆盖容器递归、非法参数与溢出原子性。4B 内继续分模块推送，本次不开始 4B，不创建 final tag。
