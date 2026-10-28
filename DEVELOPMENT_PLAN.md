@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5C 已完成，下一阶段为 6A。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5C、6A 已完成，下一阶段为 6B。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -234,7 +234,7 @@ GitHub Actions 从阶段 1 起对每次 push 和 pull_request 执行；矩阵为
 
 ### 6.2 XML 输入与资源边界
 
-这些是本工具额外采用的输入约束，必须在阶段 6 实现并在根 README 公开；不修改课程原需求，也不声称当前已经完成。
+这些是本工具额外采用的输入约束，不修改课程原需求。6A 已实现内存解析限制并在根 README 公开；文件累计字节限制及应用状态保持在 6B/6C 接入，不能把内存验收视为文件会话已通过。
 
 - 禁止 DTD、DOCTYPE 和自定义实体声明；不解析外部实体、不启用 XInclude、不访问输入中声明的网络或本地文件资源。允许 XML 预定义实体和合法数字字符引用。选择明确支持此配置的库；不能仅凭“默认安全”判断，必须核对其行为并测试。
 - 初始资源预算：文件及内存解码入口均限制 UTF-8 输入不超过 5 MiB（5 × 1024 × 1024 字节）；元素嵌套深度不超过 128（svg 为第 1 层），元素总数不超过 50,000（含根 svg）。阶段 6A 在选库时用边界 fixture 复核并确定常量；如需调值，先写明性能证据并同步本方案、测试和 README，不能留作无上限。
@@ -279,7 +279,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
 | 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
-| 6A SVG 编解码 | 进行中 | 6A.0 模型/工厂准备本地 577 项通过，后续证据见下 | 无 | 各模块独立推送并核实 CI |
+| 6A SVG 编解码 | 完成 | 6A.0 `ba55fdc`、6A.1 `407b302`、6A.2 `aaa8582` 分别推送并核实 SHA，三个实现提交的 Windows/Linux CI 均通过；33 文件 651 项及本地质量门槛通过，详见下文 | 无 | 下一阶段 6B 文件与路径 |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
 | 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
@@ -437,12 +437,15 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 
 ### 阶段 6A 执行记录（2026-10-28）
 
-- **状态**：进行中；按 6A.0 模型/工厂准备、6A.1 事件式内存读取、6A.2 序列化与 round-trip、6A.3 文档收尾分别验收、推送。前一模块精确 SHA 的双平台 CI 成功后再进入下一模块。
+- **状态**：实现验收完成，无阻塞；6A.0 模型/工厂准备、6A.1 事件式内存读取、6A.2 序列化与 round-trip 已分别推送并通过精确 SHA 的双平台 CI；6A.3 文档收尾单独提交，其自身 SHA、推送和 CI 在阶段报告核实，避免自引用。
 - **6A.0 内容**：Shape 封装只读附加 SVG 属性，TextShape 通过 textContent/svgAttributes 区分子文本和属性；SvgDocument 保存独立 viewBox 与根元数据并校验坐标系；ShapeFactory 原注册项新增 SVG 参数转换，不增加标签分派表。几何省略按 SVG 初始值 0；本阶段仅支持无单位有限 SVG 数字，不接受 px/%、十六进制等。
-- **后续目标**：6A.1 使用 saxes 的严格 XML 事件接口，在解析期间限制深度/数量，禁止 DTD/自定义实体与外部资源解析；缺 id 预收集后分配并只在完整成功时返回 warning。6B 才接入文件、路径和 read/save；6C 才接入 canvas 与完整文档历史。
+- **读取目标与结果**：6A.1 已使用 saxes 的严格 XML 事件接口，在解析期间限制深度/数量，禁止 DTD/自定义实体与外部资源解析；缺 id 预收集后分配并只在完整成功时返回 warning。6B 接入文件、路径和 read/save；6C 接入 canvas 与完整文档历史。
 - **6A.0 本地验收**：31 文件 577 项通过（原 554 项全部保留，新增 23 项）；typecheck、pretest 构建、format:check、git diff --check 通过。无阻塞；XML 依赖与 Reader 随下一小模块单独提交。
 - **6A.0 远程核实**：`ba55fdcfef805a77cc7e560a8598e10b25b13319` 已推送并经 ls-remote 核实；[CI 40649616920](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40649616920) 对应精确 SHA，Windows/Linux completed/success 后才开始 Reader。
 - **6A.1 本地验收**：32 文件 629 项通过，新增 Reader 52 项；typecheck、pretest 构建、format:check、diff 检查通过。采用 saxes 6.0.0（锁文件固定确切版本），核对源码只依赖 xmlchars、没有资源解析器；不安装自定义实体。测试覆盖六种类型、命名空间、CDATA/数字实体、空/中文/空白文本、样式与附加属性、临时文档、后部显式 id、重复 id、未知元素、畸形 XML 和 DTD。真实本地 HTTP 服务确认外部 DTD/实体无请求，fs 读取 spy 确认无文件读取；边界包含恰好/超过 5 MiB、128 层、50000 元素，超深/超量后的畸形尾部不会先触发普通 XML 错误。根 id 同时在后续插入/分组时保留占用，避免编辑后生成重复 id。
 - **6A.1 远程核实**：`407b3022c41e862003b53b823ed96be820cdbd64` 已独立推送；[CI 40650867876](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40650867876) 对应精确 SHA，Windows/Linux completed/success 后才开始 Writer。
 - **6A.2 本地验收**：33 文件 651 项通过，保留原 629 项、新增 Writer/round-trip 22 项；typecheck、pretest 构建、format:check、git diff --check 通过。SvgWriter 按文档当前顺序迭代遍历，使用多态 svgAttributes/textContent 输出 XML，不按图形标签分派。覆盖六种图形、空画布/空组、独立 viewBox、根元数据、附加属性、中文/实体/空白精确保留、默认样式不补值、自动 id 固化、编辑/排序后多轮往返、128 层、非法 XML 字符/名称及未绑定命名空间拒绝。xmlchars 2.2.0 作为直接依赖提供 XML 1.0 字符与名称检查，最后用 saxes 检查生成 XML 的命名空间绑定。
 - **6A.2 纠正与边界**：读取时将带前缀属性所需的命名空间声明保存在节点本地，避免节点离开声明祖先后保存失效；回归验证 addto 后读回属性及新父节点。序列化失败不改变文档；该模块仍不接触文件、不接入 CLI read/save、不修改历史。远程核实后才进入 6A.3 文档收尾。
+- **6A.2 远程核实**：`aaa8582dd9263b54c8dc33f1096febe7ceb15598` 已推送，ls-remote 与本地 HEAD 一致；[CI 40651997762](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40651997762) 对应精确 SHA，Windows/Linux completed/success 后开始文档收尾。
+- **6A.3 文档与一致性**：根 README 明确内存 API、XML/SVG 支持范围、预算、transform/重组与浏览器边界；架构同步多态 SVG 视图、Reader/Writer 实际契约、原工厂 SVG 转换与现有排序接线，完成 import/分派抽样。修正 6A 过程条目误放在质量章节的问题，只在过程记录保留发现、证据与纠正。保留原 554 项，模型新增 23、Reader 新增 52、Writer 新增 22，共 651 项。
+- **模式与下一步**：Factory/Registry 的同一注册表服务 CLI 与 SVG 构造，Composite 的统一树/属性视图用于序列化；Command 和 Facade 保持既有职责，没有新增名字分派或多余模式。下一阶段 6B 分模块实现实际累计字节有界读取、同目录临时文件保存/替换及失败清理、路径与文件错误转换，再接入 read/save 会话；成功后才发布路径/文档及重置历史，失败保留旧状态。canvas 属 6C，浏览器打开保存文件与完整 CLI IO 验收在接入后完成。本阶段不实现 box、不创建 final tag。

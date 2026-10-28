@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；实现更新至 5C：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup/front/back 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。SVG IO 仍按后续阶段实现；5C 的远程验收状态见开发方案第 8 节。
+架构基线：2026-10-26，v1.1；实现更新至 6A：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，tree/show/help/undo/redo/set/group/addto/ungroup/front/back 已连接真实入口；Composite 几何操作、属性修改和原子拓扑变更已接入。SvgReader/SvgWriter 已完成内存编解码，文件与路径在 6B、canvas 与完整文档历史在 6C 接入；远程验收见开发方案第 8 节。
 
 ## 架构方案
 
@@ -81,7 +81,7 @@ doc/
 
 `HistoryManager` 只在操作成功后移动栈项；撤销后只有新成功编辑会清空 redo。read 使用临时文档，save 先完整生成内容并写同目录临时文件，最终替换成功后才更新路径与历史。
 
-当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create/delete/move/scale/set/group/addto/ungroup/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数与 CLI 参数规则；按必填参数、可选样式、尾部未加引号 in 的顺序解析。CreateCommand 保存图形实例、父 id 和首次同级位置，DeleteCommand 保存完整子树及原位置，MoveCommand/ScaleCommand 保存已校验的几何前后状态，SetAttributeCommand 保存属性状态，GroupCommand/AddToCommand/UngroupCommand 保存受控拓扑变更；HistoryManager 调用 execute/undo，领域接口恢复实例、拓扑或数值。应用层生成成功及恢复摘要。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。
+当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/create/delete/move/scale/set/group/addto/ungroup/front/back/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数、CLI 参数规则与 SVG 属性转换；按必填参数、可选样式、尾部未加引号 in 的顺序解析 CLI。CreateCommand 保存图形实例、父 id 和首次同级位置，DeleteCommand 保存完整子树及原位置，MoveCommand/ScaleCommand 保存已校验的几何前后状态，SetAttributeCommand 保存属性状态，GroupCommand/AddToCommand/UngroupCommand/ReorderCommand 保存受控拓扑变更；HistoryManager 调用 execute/undo，领域接口恢复实例、拓扑或数值。应用层生成成功及恢复摘要。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。6A 内存 Reader/Writer 已独立验收，尚未连接 EditorSession 的文件操作。
 
 ### 4. PlantUML 组件图
 
@@ -167,7 +167,13 @@ end note
 
 #### IO 隔离：按实际变化需求预留接口
 
-`SvgReader`、`SvgWriter` 的边界隔离 XML 与文件系统，通过应用层使用。当前 id 分配和格式化只有单一规则，不额外拆 Strategy；等出现可替换算法时再评估，避免为了使用模式而增加类。
+`SvgReader.read(source)` 返回完整临时文档与只读 warning 列表；`SvgWriter.write(document)` 返回 XML 字符串，两者不访问文件、不操作历史。6B 文件适配负责路径、实际字节有界读取和同目录临时文件替换，应用层在成功后发布文档/路径并清空历史。当前 id 分配和格式化只有单一规则，不额外拆 Strategy；等出现可替换算法时再评估。
+
+Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深度，拒绝 DTD/DOCTYPE、自定义实体及处理指令，不安装外部解析器。先预留包括根在内的全部显式 id，再按类型计数补全并跳过占用项；完整成功才返回 warning。通过原有 ShapeFactory 注册项构造六种图形，不按标签另设分派。SvgReadError 保留 invalid-xml/unsupported-svg/resource-limit 类别，6B 再映射为带路径的规定错误。输入上限为 5 MiB UTF-8、128 层（含根）及 50,000 元素（含根）；边界与不解析外部资源均有测试证据。
+
+领域只承载 SVG 语义：Shape 封装附加属性并提供 svgAttributes/textContent 多态视图，TextShape 区分子文本与同名附加属性；SvgDocument 保存独立 viewBox 和根元数据，并在插入/分组时保留根 id。Writer 迭代读取统一树接口，保留层级顺序、缺省样式和附加属性，正确转义实体与 XML 空白；xmlchars 校验名称/字符，saxes 校验最终命名空间。Reader 将带前缀属性所需声明固化到节点本地，保证重组后可写。
+
+读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。文件路径、CLI read/save/canvas、IO 历史和浏览器预览证据仍按 6B/6C 验收。
 
 #### Facade：应用层的稳定入口
 
@@ -370,6 +376,31 @@ end note
 - **确认**：首次类型检查报告 TS2339；24 项专项测试中对应根级/嵌套两项均在调用该方法时失败，其余 22 项通过。核对 Shape 与 SetAttributeCommand，实际受控属性入口为 prepareSet；失败尚未进入排序撤销逻辑。
 - **纠正**：测试改用既有 prepareSet('fill', 'blue').apply()，不新增重复属性接口。两项测试通过，且验证 undo 只恢复拓扑、不覆盖后续样式或无关深层子树变动；完整回归通过。此项是测试契约错误，不把它描述成生产排序缺陷。
 
+### 阶段 6A：SVG 模型承载能力不足（2026-10-28）
+
+- **发现**：对照既有方案 5.2 和生成的模型，Shape 只有可编辑几何/样式，SvgDocument.viewBox 总由尺寸推导；若直接接入 Reader，外部 transform/字体属性及独立 viewBox 会在读取时丢失。
+- **确认**：核对 Shape.attributes、TextShape.geometry 和 SvgDocument getter，文本还以内部 text 字段暴露；直接遍历 attributes 序列化会误把子文本写成属性。用附加 text 属性与真实文本不同的用例确认二者必须独立。
+- **纠正**：封装只读附加属性和独立 viewBox，保留严格编辑白名单；以 Shape.svgAttributes/textContent 与 TextShape 多态覆写提供序列化视图。SVG 创建转换附在既有 ShapeFactory 注册项，沿用 Factory/Registry，不在 Reader 新增按标签分派。用元数据在编辑后保持、原始 viewBox 及六种类型测试验证。
+
+### 阶段 6A：根 id 与解析边界（2026-10-28）
+
+- **发现**：生成的 Reader 预留根 id 分配自动 id，但领域索引仍仅包含图形；读取后编辑可以复用根 id，保存将产生重复 id。仅在读入时去重不足以维持文档不变量。
+- **确认**：用根 id=rect1、后部显式 rect2 的 fixture 验证自动补全跳过二者，再尝试 insert/prepareGroup 复用 rect1；发现编辑入口也需检查保留根元数据。
+- **纠正**：在领域插入与分组准备中拒绝根 id 冲突，保留根不作为可编辑图形的既有语义。补读入后两种编辑入口的冲突回归。
+- **解析实现选择**：核对建树式解析器与事件式 saxes 的接口后，采用后者的 opentagstart 事件，在创建超限节点前检查预算；不使用全文正则扫描 DTD，避免误拒绝注释/CDATA 中的声明样文本。DOCTYPE 事件明确拒绝声明，未知实体交严格解析器拒绝；源码核对与 HTTP/fs 测试确认不会解析外部资源。错误只返回受控类别和单行消息，warning 仅成功后返回。
+
+### 阶段 6A：重组后的命名空间与 XML 精确保留（2026-10-28）
+
+- **发现**：检查生成的 Reader/Writer 时发现，Reader 原先只保留元素上显式出现的命名空间声明。属性使用祖先声明的前缀时，addto/ungroup 可能使其离开声明作用域，导致 Writer 产生未绑定前缀。
+- **确认**：构造父组声明 xmlns:m、子 rect 使用 m:note 的输入，将 rect 收编至另一个组，再保存读回；只复制原始属性不足以维持绑定。已有文本/样式也允许回车、换行、制表符和 XML 禁止字符，直接拼接或仅转义尖括号不能保证 XML 往返值相等。
+- **纠正**：Reader 把每个带前缀属性实际使用的 namespace URI 固化为节点本地声明；Writer 按多态 SVG 视图迭代输出，以字符引用保留属性空白和文本回车，转义实体；用 xmlchars 检查名称及 XML 1.0 字符，再用 saxes 验证完整结果。测试验证跨父移动后属性/父关系、中文/实体/空白精确保留、多轮往返及非法字符/名称/未绑定前缀拒绝；失败前后文档快照一致。未增加标签分派或新的设计模式。
+
+### 2026-10-28：收尾文档的状态与章节归属
+
+- **发现**：实现完成后，架构首页和根 README 仍停留在 5C/554 项测试；新增 6A 问题条目被追加在质量章节末尾，未处于约定的过程记录中。
+- **确认**：对照三个实现提交、33 文件 651 项测试及文档二级标题，确认是文档状态/章节归属偏差，CLI 文件命令仍未接入。
+- **纠正**：同步 6A 内存读写契约、输入限制和真实验收证据，补充明确的后续文件/历史边界；把 6A 发现条目移回过程记录，并分别在一致性自查和质量章节记录实际源码抽样与验收结果。
+
 ## 一致性自查
 
 阶段 2 实际源码抽样（2026-10-27）：
@@ -414,7 +445,11 @@ end note
 
 阶段 5C 一致性抽样（2026-10-28）：检查 ReorderCommand、SvgDocument.prepareReorder、TreeChange、EditorSession 注册及共享排序处理器。命令只依赖领域与 Command；领域未引用应用、CLI、具体 shapes 或文件系统；生产类保持单类同名文件与私有字段。拓扑和 id 索引由文档唯一维护，排序仅修改当前父的同级序列，缓存变更检查目标实例及受影响记录；不复制后代属性或 children 存储。两个命令在既有分发器显式登记并注入方向，没有第二次按名字分派，Parser 和 HistoryManager 契约不变。继续使用 Command、Composite、Factory/Registry、Facade，没有新增模式；SVG IO 留待阶段 6。
 
+阶段 6A 一致性抽样（2026-10-28）：检查 SvgReader、SvgWriter、SvgReadError、ShapeFactory、Shape、TextShape 与 SvgDocument。Reader 只依赖 saxes、领域、工厂和同层错误；Writer 只依赖 saxes/xmlchars 及领域抽象，不感知具体图形类或 CLI。领域/commands/shapes 未增加 application、CLI、IO 或文件系统反向 import，src 无 switch；类型查找仍只在原工厂，命令查找仍只在原分发器。图形/根元数据只读封装，文本通过多态视图区分属性与内容，父子关系由文档唯一持有。生产类单类同名文件，私有状态；Reader 的配置上限是明确静态常量。Factory/Registry 和 Composite 持续复用，未把单一编解码器包装成额外 Strategy。EditorSession 文件操作尚未接线，流程图中的应用到 IO 仍是目标依赖。
+
 ## 质量保证手段
+
+阶段 6A 质量证据：33 文件 651 项通过，原 554 项全部保留；模型/工厂新增 23、Reader 新增 52、Writer 新增 22。Windows、Node.js 24.15.0 / npm 11.12.1，typecheck、npm test（pretest 构建）、format:check、git diff --check 均通过。覆盖六种图形、独立 viewBox/根属性、文本与同名属性区分、命名空间重组、自动 id 与后部/根显式 id 冲突、非法 XML/DTD/实体、精确资源边界、空白/Unicode/实体往返、重复往返及非法输出拒绝。HTTP 服务和 fs spy 证明内存解析不访问外部资源；三个实现提交分别推送并通过各自精确 SHA 的 Windows/Linux CI，链接见开发方案第 8 节。CLI 原有回归仍全通过，文件 read/save、完整 IO 历史与浏览器保存预览尚未验收，留待 6B/6C。
 
 阶段 5C 质量证据：30 文件 554 项通过，保留原 498 项；新增领域/命令 24 项、应用会话 30 项、源码/编译入口各 1 项。typecheck、pretest 构建、format:check、git diff --check 通过。覆盖根/嵌套双方向、首中尾与唯一同级、边界不变编辑、对象身份及同 id 替换、原属性/子树保持、陈旧拓扑失败与重试、2000 层树、失败保留历史、混合命令多轮撤销重做及 IO 锁定。真实入口验证词法/语义错误后 redo、中文、顺序与父关系；Windows PTY 验证交互和 Ctrl+D 退出 0。两个实现模块分别推送，并通过精确 SHA 的 Windows/Linux CI，提交和链接见开发方案第 8 节。
 
@@ -450,22 +485,3 @@ end note
 - 阶段 1 起按 Node.js 24 LTS / 约定 npm 主版本建立 Windows、Linux CI；每次 push/PR 运行 npm ci、format:check、typecheck、build 和 test，保留精确 SHA 的结果链接。CI 不能替代交互与浏览器验收。
 - 阶段 6 验证外部实体/网络解析禁用、DTD 拒绝，以及大小、深度、元素数量的解析期间限制；超限失败不改变文档、路径或历史。
 - 根开发方案第 8 节持续记录阶段状态与证据；最终按根 README 从干净检出验证使用者交接。
-
-### 阶段 6A：SVG 模型承载能力不足（2026-10-28）
-
-- **发现**：对照既有方案 5.2 和生成的模型，Shape 只有可编辑几何/样式，SvgDocument.viewBox 总由尺寸推导；若直接接入 Reader，外部 transform/字体属性及独立 viewBox 会在读取时丢失。
-- **确认**：核对 Shape.attributes、TextShape.geometry 和 SvgDocument getter，文本还以内部 text 字段暴露；直接遍历 attributes 序列化会误把子文本写成属性。用附加 text 属性与真实文本不同的用例确认二者必须独立。
-- **纠正**：封装只读附加属性和独立 viewBox，保留严格编辑白名单；以 Shape.svgAttributes/textContent 与 TextShape 多态覆写提供序列化视图。SVG 创建转换附在既有 ShapeFactory 注册项，沿用 Factory/Registry，不在 Reader 新增按标签分派。用元数据在编辑后保持、原始 viewBox 及六种类型测试验证。
-
-### 阶段 6A：根 id 与解析边界（2026-10-28）
-
-- **发现**：生成的 Reader 预留根 id 分配自动 id，但领域索引仍仅包含图形；读取后编辑可以复用根 id，保存将产生重复 id。仅在读入时去重不足以维持文档不变量。
-- **确认**：用根 id=rect1、后部显式 rect2 的 fixture 验证自动补全跳过二者，再尝试 insert/prepareGroup 复用 rect1；发现编辑入口也需检查保留根元数据。
-- **纠正**：在领域插入与分组准备中拒绝根 id 冲突，保留根不作为可编辑图形的既有语义。补读入后两种编辑入口的冲突回归。
-- **解析实现选择**：核对建树式解析器与事件式 saxes 的接口后，采用后者的 opentagstart 事件，在创建超限节点前检查预算；不使用全文正则扫描 DTD，避免误拒绝注释/CDATA 中的声明样文本。DOCTYPE 事件明确拒绝声明，未知实体交严格解析器拒绝；源码核对与 HTTP/fs 测试确认不会解析外部资源。错误只返回受控类别和单行消息，warning 仅成功后返回。
-
-### 阶段 6A：重组后的命名空间与 XML 精确保留（2026-10-28）
-
-- **发现**：检查生成的 Reader/Writer 时发现，Reader 原先只保留元素上显式出现的命名空间声明。属性使用祖先声明的前缀时，addto/ungroup 可能使其离开声明作用域，导致 Writer 产生未绑定前缀。
-- **确认**：构造父组声明 xmlns:m、子 rect 使用 m:note 的输入，将 rect 收编至另一个组，再保存读回；只复制原始属性不足以维持绑定。已有文本/样式也允许回车、换行、制表符和 XML 禁止字符，直接拼接或仅转义尖括号不能保证 XML 往返值相等。
-- **纠正**：Reader 把每个带前缀属性实际使用的 namespace URI 固化为节点本地声明；Writer 按多态 SVG 视图迭代输出，以字符引用保留属性空白和文本回车，转义实体；用 xmlchars 检查名称及 XML 1.0 字符，再用 saxes 验证完整结果。测试验证跨父移动后属性/父关系、中文/实体/空白精确保留、多轮往返及非法字符/名称/未绑定前缀拒绝；失败前后文档快照一致。未增加标签分派或新的设计模式。
