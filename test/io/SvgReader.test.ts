@@ -136,6 +136,28 @@ describe('SvgReader', () => {
     expect(document.require('r').attributes['xml:lang']).toBe('zh');
   });
 
+  it.each([
+    '<svg xmlns="http://www.w3.org/2000/svg"><rect id="r"/></svg>',
+    '<s:svg xmlns:s="http://www.w3.org/2000/svg"><s:rect id="r"/></s:svg>',
+    '<svg><rect id="r"/></svg>',
+  ])('accepts a consistent SVG namespace mode: %s', (source) => {
+    expect(reader.read(source).document.require('r').type).toBe('rect');
+  });
+
+  it.each([
+    '<svg xmlns="http://www.w3.org/2000/svg"><g xmlns=""><rect id="r"/></g></svg>',
+    '<s:svg xmlns:s="http://www.w3.org/2000/svg"><s:g><rect xmlns="" id="r"/></s:g></s:svg>',
+    '<svg><g xmlns="http://www.w3.org/2000/svg"><rect id="r"/></g></svg>',
+    '<s:svg xmlns:s="http://www.w3.org/2000/svg"><rect id="r"/></s:svg>',
+  ])('rejects mixed SVG and unnamespaced elements: %s', (source) => {
+    expect(() => reader.read(source)).toThrow(SvgReadError);
+    try {
+      reader.read(source);
+    } catch (error) {
+      expect((error as SvgReadError).kind).toBe('unsupported-svg');
+    }
+  });
+
   it('keeps CDATA, adjacent text, character references and whitespace without double decoding', () => {
     const { document } = reader.read(
       '<svg><text id="t"> A&amp;lt;<!-- gap --><![CDATA[<B>]]>&#x4e2d;&#13;&#9;&#10; </text></svg>',

@@ -49,6 +49,7 @@ export class SvgReader {
     const parser = new SaxesParser({ xmlns: true });
     const stack: SvgElement[] = [];
     let root: SvgElement | undefined;
+    let rootNamespace: string | undefined;
     let count = 0;
     parser.on('doctype', () => {
       throw new SvgReadError(
@@ -91,6 +92,13 @@ export class SvgReader {
         throw new SvgReadError(
           'unsupported-svg',
           'unsupported element namespace',
+        );
+      }
+      if (rootNamespace === undefined) rootNamespace = tag.uri;
+      else if (tag.uri !== rootNamespace) {
+        throw new SvgReadError(
+          'unsupported-svg',
+          'SVG elements must use one consistent namespace mode',
         );
       }
       const node: SvgElement = {
