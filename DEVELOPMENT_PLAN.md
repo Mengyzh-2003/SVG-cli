@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A 已完成，5B 正在开发。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5B 已完成，下一阶段为 5C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -274,7 +274,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 4B delete/move/scale | 完成 | `997de0f`、`6bfa850`、`3adeade` 已分别推送、核实远程 SHA 且双平台 CI 通过；314 项及 Windows 交互验收通过，详见下文 | 无 | 已完成阶段 4C |
 | 4C set | 完成 | `f1f069b`、`f65f8ff` 分别推送并核实 SHA，Windows/Linux CI 均通过；392 项及交互验收通过，详见下文 | 无 | 下一阶段 5A group/addto |
 | 5A group/addto | 完成 | `f81defa`、`405ffae` 分别推送并核实 SHA，Windows/Linux CI 均通过；26 文件 456 项及交互验收通过，详见下文 | 无 | 下一阶段 5B ungroup |
-| 5B ungroup | 进行中 | 5B.1 已推送且 Windows/Linux CI 通过；5B.2 本地 28 文件 498 项通过，待远程验收 | 无 | 独立推送 5B.2、核实 SHA/CI 后收尾文档 |
+| 5B ungroup | 完成 | `39540f3`、`bbf4e3a` 分别推送并核实 SHA，Windows/Linux CI 均通过；28 文件 498 项及交互验收通过，详见下文 | 无 | 下一阶段 5C front/back |
 | 5C front/back | 未开始 | — | 无，依赖 5B | 按阶段 5C 验收 |
 | 6A SVG 编解码 | 未开始 | — | 无，依赖 5C | 选库并验证 XML/资源约束 |
 | 6B 文件与路径 | 未开始 | — | 无，依赖 6A | 验证有界读取与保存失败恢复 |
@@ -410,10 +410,13 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **阶段结论与模式**：完成，无阻塞。保留原 392 项，group 新增 28、addto 新增 36，共 456 项。Command 保存同一 TreeChange 作为一次历史单元；Composite 沿用文档唯一关系来源，Factory/Registry 创建候选 g，Facade 编排参数、反馈与历史。未添加新的名字分派或多余模式。架构与使用说明同步已实现范围，过程记录仅记实际发现、确认及纠正。
 - **记录提交与下一步**：本验收记录独立作文档提交，其自身 SHA、push/CI 在阶段报告核实，避免自引用。下一阶段 5B 实现 UngroupCommand：拒绝顶层容器解散；嵌套组的子节点按原顺序提升到原父中组所在的位置；一次 undo 恢复原组实例、父子归属和同级顺序，redo 重用保存结果；覆盖失败不改状态/历史、空组与混合历史。本次不开始 5B、5C 或 SVG IO，不实现 box，不创建 final tag。
 
-### 阶段 5B 模块进度（2026-10-28）
+### 阶段 5B 验收记录（2026-10-28）
 
 - **5B.1 本地验收**：27 文件 477 项通过，保留原 456 项、新增领域/命令测试 21 项；typecheck、pretest 构建、format:check、git diff --check 通过。ContainerShape 默认 canUngroup=false，GroupShape 显式开放；SvgDocument.prepareUngroup 复用 TreeChange，将直接孩子按原顺序替换组所在位置，不展平更深子树、不复制样式。UngroupCommand 保存同一变更，整条操作作为一次可撤销单元。
 - **5B.1 专项证据**：覆盖首/中/尾位置、空组、原实例与属性/缺省样式保持、冻结查询、顶层/叶子/缺失/受保护容器拒绝、准备不变更、失败后重试、id 复用及跨文档实例占用、陈旧拓扑拒绝与 2000 层结构。此模块未注册 CLI，远程通过后才开始 5B.2。
 - **5B.1 远程核实**：`39540f3a2b10bdd85b580174995bf48c7ff82497` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40636329249](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40636329249) 对应该 SHA，Windows/Linux completed/success。
 - **5B.2 本地验收**：28 文件 498 项通过，比 5B.1 新增应用会话 19 项和源码/编译入口各 1 项。EditorSession 注册 ungroup 与显式帮助语法，应用层生成转义反馈，由 HistoryManager 冻结并保存；顶层校验仍由领域命令负责，不因反馈需要父节点而提前空引用。覆盖直接孩子计数/原位提升/深层保持、空组、新编辑清空 redo、失败保留双栈、id 复用、混合历史、样式继承边界、受保护容器、特殊 id、init 重锁和首次成功编辑解锁。真实入口验证词法失败与顶层拒绝后 redo 仍有效、中文与 EOF。
-- **5B.2 手工与质量证据**：Windows PTY 运行编译入口，中文 text 与嵌套空组在 branch 解组后提升至 scene，show 验证新父关系；一次 undo 恢复，顶层解组错误后 redo 仍成功，tree 顺序正确。Ctrl+D 正常退出。typecheck、pretest 构建、format:check、git diff --check 均通过。此模块等待独立推送及远程 CI；收尾后再标记阶段完成。
+- **5B.2 手工与质量证据**：Windows PTY 运行编译入口，中文 text 与嵌套空组在 branch 解组后提升至 scene，show 验证新父关系；一次 undo 恢复，顶层解组错误后 redo 仍成功，tree 顺序正确。Ctrl+D 退出码 0。typecheck、pretest 构建、format:check、git diff --check 均通过。
+- **5B.2 远程核实**：`bbf4e3a2003d82789480d239b0dac20fa47d63f8` 已独立推送，ls-remote 与本地 HEAD 精确一致；[CI 40637063097](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40637063097) 对应该 SHA，Windows/Linux completed/success。5B.1 远程通过后才实施 5B.2。
+- **结论、文档与模式**：阶段完成，无阻塞。保留原 456 项，共新增 42 项。Command 将整次解组作为一个历史单元，Composite 沿用领域能力和统一树接口，Factory/Registry 与 EditorSession Facade 继续复用，不增加模式或按类型名分派。架构和根 README 同步解组能力、错误及使用示例。过程记录补充容器归属/解散能力边界与测试误将换行交给单行 Parser 的发现、确认、纠正；常规进度只记本节。
+- **记录提交与下一步**：本验收记录单独作文档提交，其自身 push/CI 在阶段报告核实，避免 SHA 自引用。下一阶段 5C 实现 ReorderCommand 与 front/back：在原父容器或 svg 根中调整同级顺序，front 置数组末尾（最后绘制、视觉最前），back 置数组开头；保留父子归属、后代结构、id 与属性，支持一次 undo 精确恢复原位与 redo，并覆盖失败保留历史、边界位置及混合命令。执行时仍按模块反馈、提交、push 和核实 CI。本次未开始 5C、未实现 SVG IO 或 box，未创建 final tag。
