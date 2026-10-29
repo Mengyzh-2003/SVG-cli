@@ -1,142 +1,61 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Stage 6C adds canvas query and resizing, with combined document-session regression tests; the sample visual check is complete using a user-provided opening screenshot. `box` is outside the current project scope.
+一个面向 SVG 文档的 TypeScript 命令行编辑器，用于课程与个人项目。支持交互式 REPL、六种内置图形、分组与层级编辑、撤销重做以及 SVG 文件读写。当前不实现 `box` 或插件加载器，不发布 npm 包。
 
-## Requirements
+## 环境与安装
 
-- Node.js 24 LTS (the initial verified runtime is 24.15.0)
-- npm 11 (the initial verified version is 11.12.1)
-- Windows or Linux; macOS has not been verified
-
-## Setup and checks
+支持 Node.js **24 LTS** 和 npm **11**，已验证 Node.js 24.15.0 / npm 11.12.1。`.node-version` 与 CI 使用同一 Node 版本；Windows、Linux 持续集成通过，macOS 未验证。
 
 ```sh
+git clone https://github.com/Mengyzh-2003/SVG-cli.git
+cd SVG-cli
 npm ci
-npm run typecheck
-npm run build
-npm test
-npm run format:check
-```
-
-Run the current development entry point with:
-
-```sh
 npm run cli
 ```
 
-Or run the compiled entry point after `npm run build`:
+启动后显示欢迎语与 `svg>` 提示符。源码入口使用 tsx；也可以先构建再直接运行编译产物：
 
 ```sh
+npm run build
 node dist/main.js
 ```
 
-## Current REPL behaviour
+输入 EOF 结束会话（Windows 终端已验证空提示符 Ctrl+D），Ctrl+C 中断进程。内存编辑不会自动保存，请在退出前使用 `save`。
 
-The REPL displays a welcome message and an `svg>` prompt. The parser ignores blank lines and whole-line comments beginning with `#` (optionally preceded by whitespace). Malformed quotes produce a single-line error and the REPL continues. `init [w] [h]` defaults to 800 by 600; a width alone retains height 600. For example:
+## 最小会话
 
-```text
-SVG CLI — document editor
-svg> # ignored comment
-svg> set t1 text "unfinished
-error: unterminated double quote
-svg> init 400 200
-canvas 400x200 created
-svg> create g scene
-g#scene created
-svg> create rect start 10 20 100 50 #eee in scene
-rect#start created in g#scene
-svg> create text label 20 40 "中文 # in" in scene
-text#label created in g#scene
-svg> tree
-svg (400x200)
-└── g#scene
-    ├── rect#start x=10 y=20 width=100 height=50 fill=#eee
-    └── text#label x=20 y=40 text="中文 # in"
-svg> show label
-text#label  parent=g#scene
-  x=20
-  y=40
-  text="中文 # in"
-svg>
-```
-
-End input with Ctrl+D on an empty prompt (verified in a Windows terminal), or send EOF from a script. Ctrl+C interrupts the process. Use `save` and `read` to persist and restore the document. The input loop supports CRLF and LF input and a final line without a trailing newline. Commands are awaited in input order, including file operations.
-
-Double quotes enclose a complete token and preserve spaces, Chinese text and empty strings. Inside double quotes, `\"` becomes `"` and `\\` becomes `\`; other backslash sequences remain literal, including ordinary Windows path separators. A literal backslash immediately before a closing quote must be doubled. Unquoted backslashes remain literal. Partial or adjacent quoted-token concatenation is rejected. Single quotes, semicolons and `#` inside arguments are ordinary characters; there are no inline comments or shell command chains.
-
-The parser preserves argument order and whether each argument was quoted. It forwards `in` as an ordinary token, retaining the distinction between `"in"` and `in`. Command registration, argument counts, numeric checks and the create parent clause belong to stage 3B application/factory handlers. Unknown commands are rejected by CommandDispatcher; init validates dimensions before replacing the document. Lexical errors never call the executor.
-
-## Domain model available in stage 3A
-
-`ShapeFactory` constructs `rect`, `circle`, `ellipse`, `line`, `text` and `g` from typed specifications and provides a registration point for future shape types. Geometry must be finite; sizes, radii and stroke width must be nonnegative. Omitted fill and stroke values remain absent.
-
-`SvgDocument` owns parent relationships, sibling order and a case-sensitive id index. Its controlled insertion, subtree removal/restoration and topology transitions preserve tree membership; queries return frozen snapshots. A shape instance can belong to only one document at a time. `init`, `create`, `delete <id>`, `move <id> <dx> <dy>`, `scale <id> <factor>`, `set <id> <attr> <value>`, `group <newGid> <id1> [id2 ...]`, `addto <gid> <id>`, `ungroup <gid>`, `front <id>`, `back <id>`, `tree [id]`, `show <id>`, `help`, `undo` and `redo` are available in the real REPL.
-
-Each successful create is one undo unit. `undo` removes that shape; `redo` restores the same instance, attributes, parent and sibling position. A new successful edit after undo clears the redo branch. Queries, malformed input and failed commands preserve history. Successful `init` clears both stacks and makes both undo and redo report `undo not allowed after io command` until the next successful edit; failed init preserves the document and history. Ordinary empty stacks report `nothing to undo` or `nothing to redo`. Both history commands accept no arguments and require an initialized document.
+在 REPL 中依次输入以下命令，不要输入代码框外的提示符：
 
 ```text
-svg> create g example
-g#example created
-svg> undo
-g#example removed
-svg> redo
-g#example created
-```
-
-This history example continues an initialized session such as the one above. Successful `init`, `read`, `save` and canvas resizing clear both history stacks and lock undo/redo until the next successful edit. Failed document operations and canvas queries preserve history.
-
-Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
-
-`move <id> <dx> <dy>` translates local coordinates, including both endpoints of a line and every descendant of a group. Sizes, text and styles remain unchanged. All candidate coordinates are validated before any change, so overflow in a later descendant leaves the entire group unchanged. Undo/redo restores captured values exactly. A valid zero displacement or move of an empty group is still one edit and clears redo. Leaf summaries show their local anchor (the first endpoint for a line); group summaries show displacement.
-
-`scale <id> <factor>` multiplies all local coordinates and sizes by a positive finite factor, across the entire selected subtree. Text scales only its x/y position; its content is unchanged. Fill, stroke and stroke width remain unchanged for every shape. Nonpositive factors, nonfinite input and geometric overflow are rejected without changing any node or history. Finite underflow to zero follows JavaScript numeric semantics; undo still restores the exact original values. A factor of 1 or scaling an empty group counts as an edit. Scaling reports `type#id scaled by factor`; undo reports `type#id geometry restored`.
-
-`set <id> <attr> <value>` edits exactly one local attribute. Every shape accepts `fill`, `stroke` and `stroke-width`. Additional attributes are:
-
-| Shape | Editable attributes |
-|---|---|
-| rect | x, y, width, height |
-| circle | cx, cy, r |
-| ellipse | cx, cy, rx, ry |
-| line | x1, y1, x2, y2 |
-| text | x, y, text |
-| g | Common styles only |
-
-Unknown attributes, including `id`, aliases `w`/`h`, `transform` and `font-size`, are rejected. Numeric attributes require a nonempty finite number; sizes, radii and stroke width must be nonnegative, while coordinates may be negative. Styles and text accept empty strings, spaces, `#` and `in`; quote values containing spaces. The `in` parent clause belongs only to create. Group styles change only the group itself, preserving descendant attributes for SVG inheritance. Undo restores the exact previous value, including an absent style; removal is reported as `type#id attribute removed: attr`. A successful unchanged value still counts as an edit and clears redo. Invalid edits preserve state and history. For example:
-
-```text
-svg> set label text "My Diagram v2"
-text#label updated: text="My Diagram v2"
-svg> undo
-text#label updated: text="中文 # in"
-svg> set scene stroke-width 0
-g#scene updated: stroke-width=0
-svg> undo
-g#scene attribute removed: stroke-width
-```
-
-This example continues the first session above. Attribute feedback uses the same single-line escaping as queries; escaping does not change stored text or styles.
-
-For example, in an initialized session:
-
-```text
-create g node
-create rect box 10 20 100 50 red in node
-create text label 20 40 "中文" in node
-move node 0 100
-scale node 0.5
+init 400 200
+create g scene
+create rect start 20 20 120 50 #f5a623 in scene
+create text label 35 50 "中文 & < >" in scene
+move scene 10 10
 undo
 redo
-delete node
-undo
 tree
+show label
+save "my diagram.svg"
+read "my diagram.svg"
+canvas
 ```
 
-`tree` displays the canvas and ordered hierarchy with inline local attributes. `tree <id>` displays only that subtree, including the selected root. `show <id>` displays the actual parent (`svg` for a root shape) and each explicit property. Both use canonical names such as `width` and `height`; omitted styles remain absent. Text is quoted and special characters are escaped for display, without changing stored values. Query errors preserve the document.
+`save` 在当前工作目录写入文件。用浏览器直接打开 `my diagram.svg` 查看效果；文件修改后刷新页面。`read` 会替换当前文档，请先保存需要保留的工作。
 
-`help` works before `init` and lists the currently registered commands, including the creation syntax for each CLI-capable shape. It accepts no arguments. The command dispatcher and shape factory supply this information from their existing registries; commands scheduled for later stages are added to help when implemented.
+## 命令速查
 
-Available creation syntax (append `in <containerId>` to any line to target an existing group):
+`help` 无需初始化即可查看全部已登记语法，`init` 或 `read` 可建立当前文档；其他命令需要当前文档。
+
+| 类别 | 命令与语法 |
+|---|---|
+| 文档 | `init [w] [h]`、`read <file.svg>`、`save [file.svg]`、`canvas [w] [h]` |
+| 基础编辑 | `delete <id>`、`move <id> <dx> <dy>`、`scale <id> <factor>`、`set <id> <attr> <value>` |
+| 层级与顺序 | `group <newGid> <id1> [id2 ...]`、`addto <gid> <id>`、`ungroup <gid>`、`front <id>`、`back <id>` |
+| 查询 | `tree [id]`、`show <id>`、`help` |
+| 历史 | `undo`、`redo` |
+
+创建语法如下；每行都可追加 `in <containerId>`，省略时挂在 SVG 根下。
 
 ```text
 create rect <id> <x> <y> <width> <height> [fill]
@@ -147,86 +66,100 @@ create text <id> <x> <y> "content"
 create g <id>
 ```
 
-Every create requires an explicit id. Duplicate ids, missing/non-group parents and invalid numeric parameters are rejected without changing the document. Required text and id tokens may contain `in`; only an unquoted trailing `in` after required parameters starts a parent clause. Optional fill/stroke equal to the literal `in` must be quoted. Empty text is allowed. Unknown types including `box` are rejected. Successful init replaces the document; failed init preserves it.
+id 必填、唯一且区分大小写；`set` 不允许修改 id。几何数值必须有限，坐标允许负数，尺寸、半径与描边宽度不得为负，画布尺寸和缩放倍数必须为正。
 
-`group <newGid> <id1> [id2 ...]` collects one or more existing subtrees. Selections with the same parent are replaced by a group at the earliest selected position; selections from different parents form a group at root end. Children follow their original document order, regardless of argument order. Duplicate selections and selecting both an ancestor and its descendant are rejected. One undo restores every original parent and sibling position; redo reuses the saved topology and same group instance. Local geometry, styles and text remain intact; reparenting can change inherited rendering. Empty groups use `create g`.
+### 输入与错误
 
-`addto <gid> <id>` moves an existing shape or subtree to the target container's last position. Moving within the same parent also moves the node to the end. Adding a container to itself or its descendants is rejected. One undo restores the original parent and sibling position; redo restores the saved result. Local attributes remain unchanged, including absent styles. Even an already-last child counts as a successful edit and clears redo history.
+空行和行首可带空白的整行 `#` 注释会被跳过；参数里的 `#ffffff` 是颜色，不支持行尾注释或 shell 命令链。双引号包裹完整词元，保留空格、中文和空文本；引号内支持 `\"` 与 `\\` 转义，其余反斜杠序列原样保留。紧接结束引号前的字面反斜杠须写成两个反斜杠。不支持部分词元拼接、单引号引用或分号分隔命令。
 
-`ungroup <gid>` replaces a nested ordinary group with its immediate children at that group's exact sibling position, preserving child order and deeper subtrees. Top-level groups are rejected with `cannot ungroup top-level container: <gid>`; containers that do not permit dissolution report `cannot ungroup composite shape: <gid>`. Empty nested groups may be dissolved. The removed id becomes available for reuse. One undo restores the same group instance, attributes, parent and child order; redo reuses the saved result. Local values remain unchanged, so losing a group's inherited styles can change rendering. Successful ungroup is one edit and clears redo; errors preserve the document and history.
+`in` 只有在 create 必填参数之后、且未加引号时才作为父容器子句；文本内容 `"in"` 和合法 id `in` 不会被误判。可选 fill/stroke 若为字面值 in，应加双引号。
 
-```text
-svg> init
-canvas 800x600 created
-svg> create g scene
-g#scene created
-svg> create g branch in scene
-g#branch created in g#scene
-svg> create text label 10 20 "中文" in branch
-text#label created in g#branch
-svg> ungroup branch
-g#branch ungrouped; 1 children promoted into g#scene
-svg> undo
-g#branch restored with 1 children
-```
+命令逐行按序执行，包括异步读写。错误以单行 `error:` 输出，之后仍可继续输入；失败不改变文档、默认路径或历史。缺失 id 的读入警告使用 `warning:`，只有完整读入成功后才输出。
 
-`front <id>` moves a shape or complete group to the end of its current sibling list (drawn last, visually in front). `back <id>` moves it to the beginning (drawn first, behind siblings). Both work at the SVG root and inside groups, preserving parent, subtree and local attributes. Each operation is one undo unit; undo restores the original sibling position and redo restores the saved result. Already-at-edge and sole-sibling operations still count as successful edits and clear redo. Invalid arguments or a missing id preserve state and history. For example, after creating two children in the same group:
+### 编辑与历史
 
-```text
-front start
-back label
-undo
-redo
-tree
-```
+一次成功编辑是一个 undo 单元；undo 后新的成功编辑清空 redo，查询与失败操作保留历史。零位移、倍数 1、相同属性值和已在边界的排序也视为成功编辑。
 
-## SVG and file support in stage 6
+成功 `init`、`read`、`save` 或画布修改后，历史清空，undo/redo 报 `error: undo not allowed after io command`，直到下一次成功编辑。`canvas` 无参查询不改变历史。普通空栈分别报 `nothing to undo` / `nothing to redo`。
 
-`read <file.svg>` loads a complete validated SVG as the current document, even before `init`. Only a successful read publishes the new document, default path and missing-id warnings. `save [file.svg]` saves the current document, reporting the number of shapes including groups and descendants but excluding the root svg. Quote paths containing spaces; relative paths use the process working directory. Successful read and explicit save set the default path for later `save`; successful `init` clears it. Without a document, save reports `no document. use 'init' or 'read' first`; without a default path it reports `no file path. use 'save <file.svg>' first`. Both errors receive the usual `error:` prefix.
+`move` 修改选中子树的局部坐标；`scale` 将所有局部位置、尺寸同乘倍数，线的两个端点都参与，文字只缩放位置，字体与 stroke-width 不缩放。先校验整个子树，溢出时不产生部分变更；undo 精确恢复快照，不依赖逆运算。有限下溢为零遵循 JavaScript 数值规则。
 
-```text
-svg> init 400 300
-canvas 400x300 created
-svg> create circle dot 50 50 20 red
-circle#dot created
-svg> save "my diagram.svg"
-saved to my diagram.svg (1 elements)
-svg> undo
-error: undo not allowed after io command
-svg> read "my diagram.svg"
-read my diagram.svg (1 elements)
-```
+`set` 设置一个节点的本地属性，白名单如下。g 的样式不覆写孩子，保留 SVG 继承。撤销区分缺省属性、空字符串、none 和显式零。
 
-`SvgReader.read(source)` returns a fresh `SvgDocument` and warnings, and `SvgWriter.write(document)` returns UTF-8 XML text. `SvgFileStore.read(path)` reads at most 5 MiB plus one boundary byte and strictly decodes UTF-8. `SvgFileStore.write(path, source)` writes a unique temporary file beside the destination, syncs and closes it, then replaces the destination; failures preserve the previous file and clean up the temporary file. Replacement atomicity depends on the target filesystem's rename semantics. These IO APIs do not manage history; `EditorSession` updates state only after success. Invalid XML, unsupported SVG, resource limits and read failures become `error: cannot read file: <path>`; serialization and write failures become `error: cannot write file: <path>`. Failures preserve the current document, default path and both history stacks and do not publish missing-id warnings. `canvas` queries the current dimensions without changing history. `canvas <w> <h>` requires two positive finite numbers and sets both dimensions and viewBox (`0 0 w h`), retaining shapes and the default file path. Successful resize, including unchanged dimensions, resets and locks undo/redo until the next successful edit; failed resize preserves state and history.
+| 类型 | 可修改属性 |
+|---|---|
+| 全部六种类型 | fill、stroke、stroke-width |
+| rect | x、y、width、height |
+| circle | cx、cy、r |
+| ellipse | cx、cy、rx、ry |
+| line | x1、y1、x2、y2 |
+| text | x、y、text |
+| g | 仅公共样式 |
 
-Supported elements are `svg` at the root and `rect`, `circle`, `ellipse`, `line`, `text` and `g` below it, with SVG namespace prefixes or wholly unnamespaced input. A document must use one namespace mode consistently: SVG-namespace and unnamespaced elements cannot be mixed. Geometry accepts finite unitless SVG numbers, including decimals and exponents; units such as `px` and `%` are rejected. Omitted geometry defaults to zero except that omitted `ellipse` `rx`/`ry` retain SVG's `auto` behavior; an explicitly supplied zero remains zero. Omitted canvas dimensions use 800 by 600. Canvas dimensions and viewBox dimensions must be positive. Shape sizes and stroke width must be nonnegative. Missing ids are assigned in document order after reserving every explicit id, with one warning per assignment. Empty or duplicate explicit ids are rejected, including conflicts with an explicit root id.
+`tree` 展示有序层级和规范属性名，`show` 显示真实 parent 与本地属性；显示转义不修改原始内容。
 
-Serialization preserves canvas dimensions, an independent viewBox, hierarchy, sibling order, ids, local attributes and text content. Missing fill/stroke remain absent. Supported nodes retain additional attributes such as transform, fonts and namespaced metadata. Attribute namespace bindings remain available after reparenting. Text uses child content, with XML entities and whitespace escaped to preserve values. Comments and original XML formatting are not retained. Unknown elements (including path, tspan, nested svg and box), foreign element namespaces and processing instructions are rejected. Writer rejects invalid XML names, forbidden XML 1.0 characters and unbound prefixes.
+### 分组与绘制顺序
 
-Transforms are preserved without evaluation; move/scale operate on local geometry. Reparenting and ungrouping do not compensate for inherited styles or transforms and can change rendering. This is not a complete SVG/CSS or reference engine.
+`group` 接受至少一个已有节点；同父选择在最早选中位置生成组，跨父选择在根末尾生成组，孩子按原文档顺序排列。重复选择和祖先/后代同时选择被拒绝。空组使用 `create g`。
 
-The reader accepts XML 1.0 with an absent or UTF-8 encoding declaration. Input is limited to **5 MiB of UTF-8**, **128 levels** (root svg is level 1) and **50,000 elements** (including the root). Depth and element limits apply during parsing. DTD/DOCTYPE and custom entities are rejected; predefined XML entities and legal numeric references are supported. The parser does not resolve external files or network resources. These are input limits; a document expanded by editing or serialization can exceed them and would then be rejected on read.
+`addto` 把已有子树放到目标容器最后，同父操作也移到最后。容器不能加入自己或自己的后代。`ungroup` 只允许解散嵌套普通 g，把直接孩子按原顺序放在组的原位置；顶层 g 和未开放解散能力的复合容器被拒绝。一条 undo 恢复原实例、原父和顺序。
 
-Preserving extra attributes is not SVG sanitization. Event attributes, URLs and CSS references may remain in the output; the reader's lack of external resource resolution does not constrain a browser opening that output.
+`front` 移到当前同级末尾（后绘制，视觉最前），`back` 移到同级开头。分组、收编、解组和排序保留本地属性；**不补偿继承样式或 transform，重组可能改变外观**。
 
-## Reproducible SVG example
+## 文件与 SVG 支持范围
 
-After building, run the example from the repository root:
+`init` 默认 800×600，仅给宽度时高度为 600。`canvas <w> <h>` 必须同时提供两个尺寸，并把 viewBox 同步为 `0 0 w h`；保持图形和默认路径。无参 canvas 只查询尺寸。
+
+`read` 成功后记录默认路径，显式 `save` 成功也更新默认路径，后续无参 `save` 使用它。相对路径以进程工作目录为准，含空格路径使用双引号。成功 init 清空默认路径；无默认路径时须先使用 `save <file.svg>`。元素计数包含 g 和子孙，不包含根 svg。
+
+保存先在目标同目录创建独占的短临时文件，写入、同步、关闭后替换目标；失败清理临时文件并保留旧文件。替换的原子性取决于文件系统 rename 语义，不承诺断电恢复。read/save 失败分别报 `cannot read file: <path>` / `cannot write file: <path>`，保留当前文档、路径与历史。
+
+- 支持根 svg 和 rect、circle、ellipse、line、text、g；支持 SVG 命名空间前缀或整体无命名空间输入，禁止两种元素命名空间模式混用。
+- 几何接受有限的无单位 SVG 数值（小数、指数）；不支持 px、百分比等单位。缺省几何通常补零，ellipse 缺省 rx/ry 保留 auto 语义；显式零保持零。缺省画布尺寸采用 800×600，画布与 viewBox 尺寸必须为正。
+- 读入先预留全部显式 id，再按文档顺序为缺失 id 分配“标签名+序号”，避免与后部元素冲突。显式空 id、重复 id（含根 id 冲突）被拒绝。
+- 保留尺寸、独立 viewBox、层级、顺序、本地属性和文本；缺省 fill/stroke 不额外补值。文本使用 XML 子文本，中文、实体和空白可往返。
+- 支持节点的附加属性（如 transform、字体和带命名空间元数据）可保留，重组后保留必要前缀绑定；不计算 transform 或完整 CSS/引用语义。CLI set 仍受上述白名单限制。
+- 不支持 path、tspan、嵌套 svg、box 等未知元素或外来元素命名空间；拒绝处理指令，XML 声明除外。不保留注释与原始排版。
+
+### 输入边界与已知限制
+
+文件必须是 XML 1.0、UTF-8（可不写编码声明）。输入上限为 **5 MiB UTF-8、128 层（根算第 1 层）、50,000 个元素（含根）**；文件按实际读取字节限额，深度/数量在解析期间检查。拒绝 DTD/DOCTYPE、自定义实体和外部实体，不解析本地外部文件或发起网络请求；支持预定义实体和合法数字引用。
+
+这些限制针对输入，编辑扩大后的输出仍可能超过读入限额。保留附加属性**不等于 SVG 净化**：事件、URL、CSS 引用可能保留，浏览器打开时的行为不受解析器外部资源禁用约束。请只预览可信文件。
+
+本工具使用内存历史，无自动保存或历史持久化；没有 GUI、HTTP API、完整 SVG/CSS 引擎或发布包流程。浏览器样例检查不代表跨浏览器兼容性认证。
+
+## 可回放样例与预览证据
+
+先构建，从仓库根目录执行：
 
 ```powershell
 Get-Content -Encoding utf8 examples/demo.commands | node dist/main.js
 ```
 
-On a shell that supports input redirection:
+支持输入重定向的 shell：
 
 ```sh
 node dist/main.js < examples/demo.commands
 ```
 
-This writes [examples/demo.svg](examples/demo.svg), a 420 by 220 document containing all six supported types and escaped Chinese text. Open that local file in a browser to inspect it. The sample has been generated and parsed. A [user-provided opening screenshot](doc/evidence/demo-preview.png) confirms the expected shapes, Chinese text and XML characters render visibly (2026-10-29). This is a sample visual check, not a cross-browser compatibility claim.
+这会写入 [examples/demo.svg](examples/demo.svg)，包含全部六种类型、420×220 画布与 `SVG 编辑器：中文 & < >`。用户提供的 [打开截图](doc/evidence/demo-preview.png) 已于 2026-10-29 完成样例视觉验收；未声称独立浏览器自动化或跨浏览器测试。
 
-## Quality checks
+## 质量检查与项目文档
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 38 test files contain 746 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands, SVG decoding/serialization and real creation/query/help/history sessions through both source and compiled entry points. File-session and source/compiled CLI tests cover successful and failed IO, default paths, delayed state publication, overlapping application calls and history preservation. File-store tests cover actual-byte limits, strict UTF-8, Unicode paths and chunk boundaries, stable errors, same-directory replacement, old-file preservation and temporary cleanup after failures. Other coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution. SVG tests cover all six shapes, namespaces after reparenting, deterministic ids, Unicode/entities/whitespace, repeated round-trips, invalid XML and parsing limits; local HTTP and filesystem spies verify that external resources are not resolved.
+```sh
+npm run format:check
+npm run typecheck
+npm run build
+npm test
+```
 
-See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.
+`npm test` 的 pretest 会重新构建，再运行一次 Vitest。当前 **39 个测试文件、752 项测试**覆盖词法与 REPL、领域不变量、六种图形、所有编辑命令执行/撤销/重做、失败状态不变、IO 历史、SVG 往返、资源边界及源码/编译入口。需求第 6 节和 6.1 版本 A 有专门入口回放测试，box 按未支持类型验收。
+
+GitHub Actions 在每次 push/PR 上执行 Windows、Linux 干净安装、格式、源码/测试类型检查、构建和测试。Prettier 检查代码及配置，Markdown 保留项目文档格式；不设任意覆盖率阈值。交互终端、用户截图与 CI 各自记录实际证据。
+
+- [需求文档](phase_cli_1.md)
+- [开发方案、阶段状态与验收记录](DEVELOPMENT_PLAN.md)
+- [最终提交文档：架构、过程记录、一致性自查、质量保证](doc/README.md)
+
+`final` 标签等待用户确认最终版本后创建；当前提交可继续审查和优化。

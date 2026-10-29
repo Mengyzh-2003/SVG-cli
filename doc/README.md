@@ -1,8 +1,8 @@
 # SVG 编辑器（CLI）项目文档
 
-本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
+本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件汇总最终提交所需的架构方案、问题纠正过程、一致性自查及质量证据；版本仍可在用户确认前继续迭代，`final` 标签等待用户明确通知。
 
-架构基线：2026-10-26，v1.1；实现更新至 6C.2：2026-10-29（样例显示已据用户截图验收）。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部已实现编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 已接入会话、默认路径与成功后历史重置；canvas 与完整文档历史回归已接入 6C，样例显示已据用户提供的打开截图验收；远程验收见开发方案第 8 节。
+架构基线：2026-10-26，v1.1；实现与验收更新至阶段 7：2026-10-29。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 接入会话、默认路径与成功后历史重置；canvas 与完整文档历史已验收，样例显示据用户截图确认。需求典型会话与流程图版本 A 已通过源码/编译入口；7B 交接证据及远程验收见开发方案第 8 节。
 
 ## 架构方案
 
@@ -45,9 +45,9 @@
 
 阶段 4B.1：DeleteCommand 通过 SvgDocument.remove 摘除子树，保存冻结拓扑、原父 id 和原同级索引；undo 使用 insertSubtree 完整校验后恢复原实例。EditorSession 生成删除/恢复摘要，HistoryManager 将整棵子树作为一个历史单元；根级恢复显示 restored into svg，组内显示 restored into g#id。失败恢复不推进命令状态，修复冲突后可重试。
 
-帮助同源：`CommandDispatcher` 的注册项同时保存处理器与语法回调；create 的回调枚举 `ShapeFactory` 同一类型表的 CLI 语法，内置语法直接由已有 schema 生成。回调在查询时求值，后注册的 CLI 类型也能显示，不执行参数解析或构造。扩展注册可同时提供 CLI parser 与语法；无 CLI parser 的内部类型不显示创建帮助。help 未初始化可用，只列当前已接入命令，后续阶段随命令注册补齐最终完整清单。
+帮助同源：`CommandDispatcher` 的注册项同时保存处理器与必填语法回调；create 的回调枚举 `ShapeFactory` 同一类型表的 CLI 语法，内置语法直接由已有 schema 生成。回调在查询时求值，后注册的 CLI 类型也能显示，不执行参数解析或构造。扩展注册可同时提供 CLI parser 与语法；无 CLI parser 的内部类型不显示创建帮助。help 未初始化可用，当前列出全部 19 个已实现命令及六种创建语法。
 
-目标目录结构：
+实际目录结构（与方案一致）：
 
 ```text
 src/
@@ -456,7 +456,19 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 - **确认依据**：复查 TextShape 的只读 geometry 实现，该视图明确合并坐标和文本；实际保存内容、撤销后坐标和中文内容均正确。问题在新测试的契约假设，不是文本编辑或 IO 缺陷。
 - **纠正方式**：保留完整相等断言，补齐 `text: '处理数据 v2'`，同时继续独立检查 textContent；不为迁就测试而删改既有快照字段。重新执行真实源码/编译入口回归及全套质量检查。
 
+### 阶段 7B：交付说明仍混入阶段性待办（2026-10-29）
+
+- **发现问题**：根 README 仍按阶段介绍能力，且把已实现的参数处理和帮助补全写为后续工作；本文件质量章节末尾也把已通过的 IO、资源限制、round-trip 列作未来证据。当前截图证据已补齐，但旧 6C 段落未明确其“待验收”仅为历史时点。
+- **确认依据**：对照 19 项命令登记、752 项回归、6C 截图归档与对应双平台 CI，以上均是说明未随实现更新，不是功能缺失。
+- **纠正方式**：根 README 改为环境/安装、最小会话、完整语法、操作语义、SVG 范围和限制的使用者指南；本文件增加当前一致性及交接证据，将阶段旧结论标为历史状态，删除失效待办。按新 README 在隔离干净检出实际验证，不把文档文字当作执行证据。
+
 ## 一致性自查
+
+阶段 7 当前结论（2026-10-29）：实际目录与架构一致，父子拓扑由 SvgDocument 唯一持有，领域不依赖具体 shapes、应用或 IO。用 TypeScript AST 遍历全部 **48 个生产 .ts 文件、36 个类、136 条 import/export 声明**，按目录规则检查相对导入并核对外部库，未发现越层依赖；每个生产类独立同名文件，无公开可写状态字段。扫描未发现 switch；再人工检查 Dispatcher.dispatch、ShapeFactory.#requireRegistration、Parser、Reader/Writer 与 DocumentFormatter，命令名/类型名查找仅在原两处注册表，图中继续标为待重构点。AST 检查不是完整静态证明，补充抽样检查构造注入、私有字段、冻结视图及受控领域写入。
+
+抽样文件包括 main.ts、Repl、CommandParser、EditorSession、CommandDispatcher、HistoryManager、ShapeFactory、Shape、SvgDocument、GeometryCommand、GroupCommand、TreeChange、SvgReader、SvgWriter、SvgFileStore。Command 构造注入、无参 execute/undo；应用层生成反馈；Composite 使用唯一树与多态准备接口；Factory/Registry 复用 CLI/SVG 注册；Facade 编排 IO/历史；GeometryCommand 的局部 Template Method 固定快照生命周期。无新增模式或名字分派，box 仍不实现。先前将具体图形统一归 src/shapes、让拓扑只归文档、从首个 create 引入 Command 等方案调整已写入架构和过程记录。
+
+以下保留各阶段当时的抽样结果；其中“尚未实现/待验收”表示历史状态，当前以本段与最新质量证据为准。
 
 阶段 2 实际源码抽样（2026-10-27）：
 
@@ -508,9 +520,13 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 ## 质量保证手段
 
+阶段 7A 当前自动化证据（2026-10-29）：39 文件 752 项通过，保留 746 项既有回归，新增需求第 6 节、6.1 版本 A 及 box/未知类型失败链在源码/编译入口各 3 项。核对组合与恢复、warning、IO 锁定、实际文件的几何/层级/文本和失败后 redo；typecheck、pretest 构建、format:check、git diff --check 全通过。实现 `bbf0f194e473cd2d77fcb052f6fd78ece1ebe282` 已推送并通过 [CI 40824078764](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40824078764) 的 Windows/Linux 检查。没有用覆盖率百分比代替行为证据。
+
+阶段 7B 干净检出与交接证据（2026-10-29）：用不共享对象硬链接的本地 clone 检出精确 `bbf0f194e473cd2d77fcb052f6fd78ece1ebe282`，确认无依赖、编译产物或工作区修改后，在 Windows / Node.js 24.15.0 / npm 11.12.1 从锁文件执行 npm ci、format:check、typecheck、build、npm test，39 文件 752 项全通过。随后复制本次 README 供实际照做，用源码入口回放最小中文会话，验证保存/读回、组移动撤销重做、矩形与文字最终坐标/父节点；用编译入口回放 examples/demo.commands，确认 420×220、六元素、viewBox 与既有样例字节一致。输出 SVG 经 Reader 再验证，删除临时会话文件后，干净副本仅有预期的 README 文档差异，无生产代码或样例漂移。该检查复用已验收代码提交，本次只修订文档；本次文档提交自身 SHA/CI 在阶段报告核实，避免自引用。
+
 阶段 6C 视觉补充验收（2026-10-29）：用户提供打开 examples/demo.svg 后的截图，已归档为 [doc/evidence/demo-preview.png](evidence/demo-preview.png)。观察到橙色矩形、蓝色圆、绿色椭圆、深色横线及 `SVG 编辑器：中文 & < >`，形状比例、相对位置及文字均与样例一致，无明显裁切、乱码或 XML 错误页。g 的归属和尺寸/viewBox 由既有解析及会话测试确认，不能只凭截图推断；截图未提供浏览器版本，因此不宣称独立浏览器自动化或跨浏览器兼容验收。样例 SHA-256：`f1b0ac30055dc40ab85c75bd521f0dc9315eba8ec89ce66c7d99b3b68362c074`。
 
-阶段 6C 质量证据：38 文件 746 项通过，领域尺寸 9、canvas 会话 21、源码/编译画布入口各 1、真实文件文档混合历史 4、源码/编译完整文件会话各 1，共新增 38 项；6B 长文件名复核另新增 2 项。覆盖查询不改历史、失败不改状态、成功修改重置历史、同尺寸修改和独立 viewBox、保留树身份/路径/元数据、六类型编辑后两份文件字节一致。Windows 真实终端回放成功；examples/demo.svg 由编译入口真实生成。6C.1 精确 SHA 双平台 CI 已通过；6C.2 推送与 CI 见开发方案。浏览器工具未能可靠识别 URL 并停止控制，显示预览未验收，未计入已通过证据。
+阶段 6C 质量证据：38 文件 746 项通过，领域尺寸 9、canvas 会话 21、源码/编译画布入口各 1、真实文件文档混合历史 4、源码/编译完整文件会话各 1，共新增 38 项；6B 长文件名复核另新增 2 项。覆盖查询不改历史、失败不改状态、成功修改重置历史、同尺寸修改和独立 viewBox、保留树身份/路径/元数据、六类型编辑后两份文件字节一致。Windows 真实终端回放成功；examples/demo.svg 由编译入口真实生成。6C.1/6C.2 与截图记录均已通过精确 SHA 双平台 CI，见开发方案。工具停止控制时未计入显示证据；随后用户截图已补齐上文样例视觉验收。
 
 阶段 6B 质量证据：36 文件 706 项通过；文件适配新增 9、文件会话新增 28、Dispatcher 异步转发新增 1、源码/编译入口各新增 1。typecheck、pretest 构建、format:check、git diff --check 均通过。验证实际字节读取限额、严格 UTF-8、同目录临时文件替换与失败清理、默认路径、完整验证后发布文档和 warnings、读写失败保留文档/路径/双栈、延迟 IO 与重叠请求拒绝及恢复。Windows PTY 编译入口回放读写后历史锁定、新编辑后 undo/redo、read 失败后无参 save 沿用旧路径和 Ctrl+D 退出 0。6B.1 与 6B.2 分别独立推送，并通过精确实现 SHA 的 Windows/Linux CI，链接见开发方案第 8 节。canvas 和浏览器显示尚未验收，留待 6C。
 
@@ -540,13 +556,6 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 手工证据：在 Windows PTY 运行 `node dist/main.js`，验证空行、含未闭合引号的整行注释被跳过，未闭合文本输出一行词法错误，下一条中文/含 #/in 的合法词法输入到达阶段占位执行器，空提示符 Ctrl+D 退出码为 0。源码与编译入口都由真实子进程测试持续验证。阶段 1 补强提交 [CI 40465418386](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465418386)、阶段 2A [CI 40465817080](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40465817080) 及阶段 2B [CI 40466534090](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40466534090) 均在 Windows/Linux 通过；精确实现 SHA、远程核实及完成状态见根开发方案第 8 节。
 
-后续阶段仍须落实以下证据，不把下述计划写成已通过：
+当前验收覆盖全部已要求命令及其失败状态、撤销重做、IO 历史和 SVG round-trip；资源限制、外部资源不解析、临时文件失败保护与合法长文件名均有专项回归。具体文件包括 RequirementsSession、Main/MainIo、DocumentSession/CanvasSession、SvgReader/SvgWriter/SvgFileStore 及领域/命令测试。持续执行入口见根 README，远程 SHA 与双平台 CI 见开发方案第 8 节。
 
-- 保留已完成的 front/back、group/addto/ungroup/set、Composite 移动/缩放、id/工厂/父子关系及 Parser、REPL 回归；SVG IO 接入后验证顺序可序列化并读回。
-- 对每个新增编辑命令验证“执行 → undo → redo”，沿用已建立的 redo 清空、init 后禁止 undo 和错误命令不入栈回归；read/save/canvas 接入时扩展 IO 历史验收。
-- 用含缺失 id、嵌套 g、文本和非法文件的 SVG 做读入测试，验证自动补 id 警告和错误前缀。
-- 对保存结果做 XML 检查，再 read 回来比较画布、层级、属性和文本，验证 round-trip。
-- 运行 TypeScript 类型检查、测试命令和典型 CLI 会话；每完成一个小模块先验证，再单独提交并推送。
-- 阶段 1 起按 Node.js 24 LTS / 约定 npm 主版本建立 Windows、Linux CI；每次 push/PR 运行 npm ci、format:check、typecheck、build 和 test，保留精确 SHA 的结果链接。CI 不能替代交互与浏览器验收。
-- 阶段 6 验证外部实体/网络解析禁用、DTD 拒绝，以及大小、深度、元素数量的解析期间限制；超限失败不改变文档、路径或历史。
-- 根开发方案第 8 节持续记录阶段状态与证据；最终按根 README 从干净检出验证使用者交接。
+剩余发布动作：用户于 2026-10-29 明确要求继续审查优化，暂不打 final；仅在用户确认最终版本后，重新核实质量、工作区、远程及目标提交，再创建并推送 annotated final 标签。不将未打标状态写成课程最终提交已完成。
