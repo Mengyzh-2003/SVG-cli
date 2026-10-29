@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-29，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；6B 长文件名复核修复已验收，6C 代码与自动化回归已实现并通过远程双平台 CI，浏览器显示验收尚待补齐。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-29，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；6B 长文件名复核修复已验收，6C 代码与自动化回归已通过远程双平台 CI，样例显示已据用户提供的打开截图验收；本次验收记录推送核实后进入阶段 7。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -287,7 +287,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
 | 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 6B 已完成 |
 | 6B 文件与路径 | 完成 | 6B.1 `71e2361`、6B.2 `4ef5572` 分别推送并核实 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428)、[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) Windows/Linux 均成功；36 文件 706 项、本地质量门槛及交互验收通过，详见下文 | 无 | 下一阶段 6C canvas 与完整文档历史 |
-| 6C canvas/文档历史 | 待验收 | 6C.1 `7e5f411` 已推送且双平台 CI 成功；6C.2 `7a03ff7` 已推送且 [CI 40821628779](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40821628779) 双平台成功；38 文件 746 项通过，详见下文 | 浏览器工具无法可靠识别 URL，显示验收未完成 | 补齐浏览器预览后再验收 6C |
+| 6C canvas/文档历史 | 待验收 | 6C.1 `7e5f411` 已推送且双平台 CI 成功；6C.2 `7a03ff7` 已推送且 [CI 40821628779](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40821628779) 双平台成功；38 文件 746 项通过，详见下文 | 用户截图已补齐显示验收，等待本记录推送/CI | 核实本记录后进入阶段 7 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
 
 阶段记录模板（每次更新保留必要历史，不把模板当作证据）：
@@ -494,3 +494,9 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **可复现样例**：examples/demo.commands 经真实编译入口生成 examples/demo.svg，420×220、六种类型、组移动、中文/XML 实体文本与 canvas 修改均成功。Windows PowerShell 从根目录运行 `Get-Content -Encoding utf8 examples/demo.commands | node dist/main.js`，保存摘要为 6 elements；可直接用浏览器打开生成文件。
 - **浏览器待验收**：Windows Computer Use 成功启动 Edge，但获取窗口状态时工具提示无法可靠确定当前浏览器 URL，并停止本轮控制。未继续浏览器输入，未声称已经看到渲染结果；本项为 6C 待验收原因，不影响上述代码与自动化回归的证据。补齐前不标记 6C 完成、不进入阶段 7。
 - **架构**：抽查 SvgDocument.resize、EditorSession.canvas、HistoryManager、SvgReader/Writer 与文件适配器，保持单向依赖、领域封装、唯一拓扑及两处名字分派；canvas 复用 Facade 和文档命令规则，Command/Composite/Factory/Registry 没有新增替代实现。阶段 7 的干净检出与完整交付审查留待后续，不实现 box、不打 final tag。
+
+### 阶段 6C.3 视觉验收补充（2026-10-29）
+
+- **证据与观察**：用户提供 examples/demo.svg 打开后的截图，已归档 doc/evidence/demo-preview.png。矩形、圆、椭圆、横线及中文/XML 字符显示符合样例，无明显变形、裁切、乱码或 XML 错误页；组归属、420×220 尺寸和 viewBox 仍由既有自动化证据确认。截图不提供浏览器版本，不冒称独立浏览器操作或多浏览器兼容。
+- **限制解除范围**：原生浏览器工具仍无法可靠识别 URL，但用户提供的直接显示证据已满足当前样例视觉检查，无需更改用户浏览器设置。6C.1/6C.2 实现和双平台 CI 均已通过；本记录推送、核实后标记 6C 完成并进入阶段 7。
+- **下一阶段拆分**：7A 固定需求第 6 节及 6.1 版本 A 的真实入口回归、核对错误和 box 排除边界；7B 完善使用说明、最终一致性/质量材料并从干净检出按 README 验证；7C 核实最终提交远程与双平台 CI，创建并推送 annotated final 标签。每个模块独立提交、推送和验收，不新增功能或设计模式。

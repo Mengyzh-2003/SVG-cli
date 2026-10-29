@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；实现更新至 6C.2：2026-10-29（浏览器预览待验收）。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部已实现编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 已接入会话、默认路径与成功后历史重置；canvas 与完整文档历史回归已接入 6C，浏览器显示待验收；远程验收见开发方案第 8 节。
+架构基线：2026-10-26，v1.1；实现更新至 6C.2：2026-10-29（样例显示已据用户截图验收）。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部已实现编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 已接入会话、默认路径与成功后历史重置；canvas 与完整文档历史回归已接入 6C，样例显示已据用户提供的打开截图验收；远程验收见开发方案第 8 节。
 
 ## 架构方案
 
@@ -179,7 +179,7 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 领域只承载 SVG 语义：Shape 封装附加属性并提供 svgAttributes/textContent 多态视图，TextShape 区分子文本与同名附加属性；SvgDocument 保存独立 viewBox 和根元数据，并在插入/分组时保留根 id。Writer 迭代读取统一树接口，保留层级顺序、缺省样式和附加属性，正确转义实体与 XML 空白；xmlchars 校验名称/字符，saxes 校验最终命名空间。Reader 将带前缀属性所需声明固化到节点本地，保证重组后可写。
 
-读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。CLI read/save、路径上下文与对应 IO 历史已在 6B.2 接入；6C 已接入 canvas 与完整文档历史回归，浏览器预览证据仍待验收。
+读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。CLI read/save、路径上下文与对应 IO 历史已在 6B.2 接入；6C 已接入 canvas 与完整文档历史回归，样例视觉证据已由用户提供的打开截图补齐（见质量保证）；不宣称自动操作浏览器或跨浏览器验证。
 
 #### Facade：应用层的稳定入口
 
@@ -498,9 +498,11 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 阶段 6B 一致性抽样（2026-10-28）：检查 EditorSession、CommandHandler、CommandDispatcher、main.ts、SvgFileStore 与 SvgFileError。main 显式装配文件适配器和工厂；Facade 编排 Reader/Writer、路径、历史和摘要，文件适配器只负责文本与文件系统。异步返回仅扩展应用契约，编辑命令继续构造注入与无参 execute/undo。领域、图形及编辑命令没有增加文件系统或应用层反向依赖；名字分派仍只在原 Dispatcher 和 ShapeFactory。文件 IO 不新增可撤销 Command 或仅有单一实现的 Strategy，canvas 尚未注册。
 
-阶段 6C 一致性抽样（2026-10-29）：检查 SvgDocument.resize、EditorSession 的 canvas 注册/处理器、HistoryManager 及 SvgReader/Writer。宽高和 viewBox 为领域私有状态，查询返回只读值；resize 校验全部输入后写入，不改唯一拓扑及图形属性。Facade 编排尺寸、路径、历史和摘要，领域没有增加应用层、CLI、文件系统依赖；查询/失败不重置历史，成功修改不作为可撤销编辑。沿用 Command、Composite、Factory/Registry 与 Facade，无新增名字分派或模式。代码与自动化已接线，浏览器显示尚未验收，不能据此宣称阶段 6C 全部完成。
+阶段 6C 一致性抽样（2026-10-29）：检查 SvgDocument.resize、EditorSession 的 canvas 注册/处理器、HistoryManager 及 SvgReader/Writer。宽高和 viewBox 为领域私有状态，查询返回只读值；resize 校验全部输入后写入，不改唯一拓扑及图形属性。Facade 编排尺寸、路径、历史和摘要，领域没有增加应用层、CLI、文件系统依赖；查询/失败不重置历史，成功修改不作为可撤销编辑。沿用 Command、Composite、Factory/Registry 与 Facade，无新增名字分派或模式。代码与自动化已接线；此前显示待验收项已由下述用户截图证据补齐。
 
 ## 质量保证手段
+
+阶段 6C 视觉补充验收（2026-10-29）：用户提供打开 examples/demo.svg 后的截图，已归档为 [doc/evidence/demo-preview.png](evidence/demo-preview.png)。观察到橙色矩形、蓝色圆、绿色椭圆、深色横线及 `SVG 编辑器：中文 & < >`，形状比例、相对位置及文字均与样例一致，无明显裁切、乱码或 XML 错误页。g 的归属和尺寸/viewBox 由既有解析及会话测试确认，不能只凭截图推断；截图未提供浏览器版本，因此不宣称独立浏览器自动化或跨浏览器兼容验收。样例 SHA-256：`f1b0ac30055dc40ab85c75bd521f0dc9315eba8ec89ce66c7d99b3b68362c074`。
 
 阶段 6C 质量证据：38 文件 746 项通过，领域尺寸 9、canvas 会话 21、源码/编译画布入口各 1、真实文件文档混合历史 4、源码/编译完整文件会话各 1，共新增 38 项；6B 长文件名复核另新增 2 项。覆盖查询不改历史、失败不改状态、成功修改重置历史、同尺寸修改和独立 viewBox、保留树身份/路径/元数据、六类型编辑后两份文件字节一致。Windows 真实终端回放成功；examples/demo.svg 由编译入口真实生成。6C.1 精确 SHA 双平台 CI 已通过；6C.2 推送与 CI 见开发方案。浏览器工具未能可靠识别 URL 并停止控制，显示预览未验收，未计入已通过证据。
 

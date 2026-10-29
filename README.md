@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Stage 6C adds canvas query and resizing, with combined document-session regression tests; browser visual acceptance is pending. `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Stage 6C adds canvas query and resizing, with combined document-session regression tests; the sample visual check is complete using a user-provided opening screenshot. `box` is outside the current project scope.
 
 ## Requirements
 
@@ -223,7 +223,7 @@ On a shell that supports input redirection:
 node dist/main.js < examples/demo.commands
 ```
 
-This writes [examples/demo.svg](examples/demo.svg), a 420 by 220 document containing all six supported types and escaped Chinese text. Open that local file in a browser to inspect it. The sample has been generated and parsed; browser visual acceptance is still pending (see the development plan).
+This writes [examples/demo.svg](examples/demo.svg), a 420 by 220 document containing all six supported types and escaped Chinese text. Open that local file in a browser to inspect it. The sample has been generated and parsed. A [user-provided opening screenshot](doc/evidence/demo-preview.png) confirms the expected shapes, Chinese text and XML characters render visibly (2026-10-29). This is a sample visual check, not a cross-browser compatibility claim.
 
 ## Quality checks
 
