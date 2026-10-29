@@ -154,13 +154,16 @@ node dist/main.js < examples/demo.commands
 ```sh
 npm run format:check
 npm run typecheck
+npm run check:repo
 npm run build
 npm test
 ```
 
 `npm test` 的 pretest 会重新构建，再运行一次 Vitest。当前 **39 个测试文件、762 项测试**覆盖词法与 REPL、领域不变量、六种图形、所有编辑命令执行/撤销/重做、失败状态不变、IO 历史、SVG 往返、资源边界及源码/编译入口。需求第 6 节和 6.1 版本 A 有完整入口输出回放测试，box 按未支持类型验收。
 
-GitHub Actions 在每次 push/PR 上执行 Windows、Linux 干净安装、格式、源码/测试类型检查、构建和测试。Prettier 检查代码及配置，Markdown 保留项目文档格式；不设任意覆盖率阈值。交互终端、用户截图与 CI 各自记录实际证据。
+GitHub Actions 在每次 push/PR 上执行 Windows、Linux 干净安装、格式、源码/测试类型检查、仓库检查、构建和测试。Prettier 检查代码及配置；`check:repo` 检查生产依赖方向、类与文件同名、公开可写字段、顶层过程函数和 switch，单独检查文档章节、链接、围栏、过程标题、日期及架构 PNG 内嵌图源，并用 3 项损坏样例验证检测能力。两处名字分派、模式合理性和文档内容仍需人工复核，不设任意覆盖率阈值。
+
+`npm run benchmark` 从独立进程测量 5,000/20,000 个矩形、2,000 次移动、10 轮删除/撤销/重做和序列化，输出耗时、保留堆增量及进程峰值内存；包含构造输入的读入耗时，不包含磁盘写入。它是诊断命令，结果随机器变化，不作为 CI 时间门槛。
 
 - [需求文档](phase_cli_1.md)
 - [开发方案、阶段状态与验收记录](DEVELOPMENT_PLAN.md)

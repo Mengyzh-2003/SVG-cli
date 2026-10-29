@@ -14,7 +14,9 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:repo": "node scripts/RepositoryAudit.mjs && node --test scripts/RepositoryAudit.check.mjs",
+    "benchmark": "npm run build && node --expose-gc scripts/PerformanceProbe.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
