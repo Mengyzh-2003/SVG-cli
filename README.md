@@ -169,4 +169,4 @@ GitHub Actions 在每次 push/PR 上执行 Windows、Linux 干净安装、格式
 - [开发方案、阶段状态与验收记录](DEVELOPMENT_PLAN.md)
 - [最终提交文档：架构、过程记录、一致性自查、质量保证](doc/README.md)
 
-`final` 标签等待用户确认最终版本后创建；当前提交可继续审查和优化。
+最终提交版本以 `final` 标签标识。
