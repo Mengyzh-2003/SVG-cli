@@ -13,22 +13,15 @@ interface DocumentNode {
 
 export class SvgDocument {
   static readonly #owners = new WeakMap<Shape, SvgDocument>();
-  readonly #width: number;
-  readonly #height: number;
-  readonly #viewBox: string;
+  #width: number;
+  #height: number;
+  #viewBox: string;
   readonly #extraAttributes: Readonly<Record<string, string>>;
   #roots: string[] = [];
   readonly #nodes = new Map<string, DocumentNode>();
 
   constructor(width = 800, height = 600, options: SvgDocumentOptions = {}) {
-    if (
-      !Number.isFinite(width) ||
-      !Number.isFinite(height) ||
-      width <= 0 ||
-      height <= 0
-    ) {
-      throw new Error('canvas dimensions must be finite and positive');
-    }
+    SvgDocument.#requireDimensions(width, height);
     this.#width = width;
     this.#height = height;
     this.#viewBox = options.viewBox ?? `0 0 ${width} ${height}`;
@@ -60,6 +53,25 @@ export class SvgDocument {
 
   get viewBox(): string {
     return this.#viewBox;
+  }
+
+  /** Validate both dimensions before publishing a new canvas coordinate space. */
+  resize(width: number, height: number): void {
+    SvgDocument.#requireDimensions(width, height);
+    this.#width = width;
+    this.#height = height;
+    this.#viewBox = `0 0 ${width} ${height}`;
+  }
+
+  static #requireDimensions(width: number, height: number): void {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error('canvas dimensions must be finite and positive');
+    }
   }
 
   get extraAttributes(): Readonly<Record<string, string>> {

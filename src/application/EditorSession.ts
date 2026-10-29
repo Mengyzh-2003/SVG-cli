@@ -130,6 +130,11 @@ export class EditorSession implements CommandExecutor {
       (request) => this.#save(request),
       () => ['save [file.svg]'],
     );
+    this.#dispatcher.register(
+      'canvas',
+      (request) => this.#canvas(request),
+      () => ['canvas [w] [h]'],
+    );
   }
 
   get document(): SvgDocument | null {
@@ -504,6 +509,27 @@ export class EditorSession implements CommandExecutor {
         ],
         redoLines: [`${summary} ${action}`],
       }),
+    };
+  }
+
+  #canvas(request: CommandRequest): CommandResult {
+    const document = this.#requireDocument();
+    if (request.args.length === 0) {
+      return {
+        status: 'success',
+        lines: [`canvas ${document.width}x${document.height}`],
+      };
+    }
+    if (request.args.length !== 2) throw new Error('usage: canvas [w] [h]');
+    const width = this.#parseDimension(request.args[0]!.value, 800, 'width');
+    if (typeof width !== 'number') return width;
+    const height = this.#parseDimension(request.args[1]!.value, 600, 'height');
+    if (typeof height !== 'number') return height;
+    document.resize(width, height);
+    this.#history.resetAfterIo();
+    return {
+      status: 'success',
+      lines: [`canvas resized to ${width}x${height}`],
     };
   }
 

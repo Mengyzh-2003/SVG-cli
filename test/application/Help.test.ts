@@ -34,13 +34,13 @@ describe('registered help', () => {
         'back <id>',
         'read <file.svg>',
         'save [file.svg]',
+        'canvas [w] [h]',
       ],
     });
     expect(session.document).toBeNull();
-    // Unimplemented commands must not be advertised as executable.
     expect(executeLine(session, 'canvas')).toEqual({
       status: 'error',
-      message: 'unknown command: canvas',
+      message: "no document. use 'init' or 'read' first",
     });
   });
 

@@ -141,11 +141,13 @@ end note
 
 成功摘要由应用层处理器依据已验证参数和目标对象生成，并转换为 `CommandResult`；CLI 只负责统一呈现。阶段 4A 的 HistoryManager 保存命令及应用层提供的撤销/重做反馈，操作成功后才返回相应反馈；不让 commands 反向依赖应用层结果、终端或历史。领域恢复由命令负责，历史层不按命令名判断摘要或操作。
 
-4A 已实现 `HistoryManager.execute(command, feedback)`、`undo()`、`redo()` 与 `resetAfterIo()`，并接入 EditorSession。反馈在执行前复制并冻结；执行成功才入 undo 栈、清空 redo 并解除 IO 锁定，undo/redo 成功才移动栈顶。成功 init 重置两栈并锁定；read/save/canvas 后续复用该接口。历史管理器不修复命令的部分写入，`Command` 契约要求失败时领域状态不变。撤销 create 输出 `类型#id removed`，重做复用首次创建摘要（含父容器）。
+4A 已实现 `HistoryManager.execute(command, feedback)`、`undo()`、`redo()` 与 `resetAfterIo()`，并接入 EditorSession。反馈在执行前复制并冻结；执行成功才入 undo 栈、清空 redo 并解除 IO 锁定，undo/redo 成功才移动栈顶。成功 init/read/save/canvas 修改已复用该接口重置两栈并锁定；canvas 查询不改变历史。历史管理器不修复命令的部分写入，`Command` 契约要求失败时领域状态不变。撤销 create 输出 `类型#id removed`，重做复用首次创建摘要（含父容器）。
 
 每条编辑命令对应一个 undo 单元。从首次接入 create 开始就走 Command 路径，不先实现一条绕过历史的直接编辑路径。命令保存父节点、同级位置、旧属性或封装快照；先验证完整候选结果再写入。move/scale 恢复旧几何值，不仅使用逆运算，以免浮点误差积累；redo 复用保存结果。`GroupCommand` 即使移动多个图形，也只作为一个命令进入历史栈。
 
 文档操作采用相同的应用入口，由应用层文档处理器负责，编辑 Command 不持有 IO 服务。只有成功的文档操作清空历史并锁定，符合需求中“undo not allowed after io command”的规则。
+
+6C.1 的 `SvgDocument.resize(width, height)` 完整校验后同步尺寸和 `viewBox=0 0 w h`，不改图形树、局部属性和根元数据。Facade 登记 `canvas [w] [h]`：无参只查询，修改必须同时给两个正有限数；成功修改（含同尺寸）重置历史并保留默认路径，失败保留全部会话状态。它是文档操作，不创建可撤销 Command。
 
 #### Composite：统一容器与叶子操作
 
@@ -435,6 +437,12 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 - **发现**：SvgFileStore 把完整目标文件名拼入临时文件名，额外增加 42 个字符，使本来合法的长文件名无法保存。
 - **确认**：在真实 Windows 文件系统上先用普通 writeFile 写入并删除 214、255 字符目标文件，再调用适配器首次保存；旧实现的两个回归都在临时文件 open 失败，原有 9 项文件测试通过。
 - **纠正**：同目录临时文件改为与目标名称长度无关的 `.svg-cli-<UUID>.tmp`，保留 wx 独占创建、sync/close、rename 替换和失败清理。两项回归均验证首次保存、覆盖后内容以及目录中没有临时文件；全量 36 文件 708 项通过。
+
+### 阶段 6C.1：帮助清单的旧验收断言未随注册扩展（2026-10-29）
+
+- **发现**：canvas 注册后，全量回归中源码/编译入口各有两项旧测试失败；它们固定要求 save 帮助行后紧接下一提示符。
+- **确认**：实际输出包含新注册的 `canvas [w] [h]`，原命令反馈和新画布测试均通过，属于旧验收清单过时。
+- **纠正**：同步应用帮助清单与两处入口期望，保留完整帮助输出顺序和下一条命令反馈检查；全量 37 文件 740 项通过。复查根 README 开头仍写画布待实现，及架构历史接口段仍写 read/save 后续接入，均同步当前实现。
 
 ## 一致性自查
 

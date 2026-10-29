@@ -94,6 +94,59 @@ describe('SvgDocument', () => {
     ]);
   });
 
+  it('resizes the canvas and coordinate space while retaining all tree state and root metadata', () => {
+    const document = new SvgDocument(40, 30, {
+      viewBox: '-10 2 100 200',
+      extraAttributes: { id: 'root', 'data-note': '中文' },
+    });
+    const group = new GroupShape('scene', { fill: 'red' });
+    const label = new TextShape('label', 1, 2, 'unchanged');
+    document.insert(group);
+    document.insert(label, 'scene');
+    const before = visibleState(document);
+    document.resize(120.5, 90.25);
+    expect([document.width, document.height, document.viewBox]).toEqual([
+      120.5,
+      90.25,
+      '0 0 120.5 90.25',
+    ]);
+    expect(visibleState(document)).toEqual({
+      ...before,
+      width: 120.5,
+      height: 90.25,
+    });
+    expect(document.require('scene')).toBe(group);
+    expect(document.require('label')).toBe(label);
+    expect(label.geometry).toEqual({ x: 1, y: 2, text: 'unchanged' });
+    expect(document.extraAttributes).toEqual({
+      id: 'root',
+      'data-note': '中文',
+    });
+  });
+
+  it.each([
+    [0, 20],
+    [-1, 20],
+    [NaN, 20],
+    [Infinity, 20],
+    [10, 0],
+    [10, -1],
+    [10, NaN],
+    [10, Infinity],
+  ])(
+    'rejects resize %s by %s without changing dimensions or viewBox',
+    (width, height) => {
+      const document = new SvgDocument(40, 30, { viewBox: '1 2 3 4' });
+      document.insert(new GroupShape('scene'));
+      const before = visibleState(document);
+      expect(() => document.resize(width, height)).toThrow(
+        'canvas dimensions must be finite and positive',
+      );
+      expect(visibleState(document)).toEqual(before);
+      expect(document.viewBox).toBe('1 2 3 4');
+    },
+  );
+
   it('treats identities as case sensitive and reserves no user root id', () => {
     const document = new SvgDocument();
     for (const id of ['r1', 'R1', 'svg', 'in']) {

@@ -1,12 +1,12 @@
 # SVG CLI 开发执行方案
 
-版本：v1.1（进度更新至 2026-10-28）
+版本：v1.1（进度更新至 2026-10-29）
 
 ## 1. 目标、依据与当前状态
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-28，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；下一阶段为 6C，尚未开始。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-29，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；6B 长文件名复核修复已验收，当前进行 6C。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -287,7 +287,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
 | 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 6B 已完成 |
 | 6B 文件与路径 | 完成 | 6B.1 `71e2361`、6B.2 `4ef5572` 分别推送并核实 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428)、[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) Windows/Linux 均成功；36 文件 706 项、本地质量门槛及交互验收通过，详见下文 | 无 | 下一阶段 6C canvas 与完整文档历史 |
-| 6C canvas/文档历史 | 未开始 | — | 无，依赖 6B | 按阶段 6C 验收 |
+| 6C canvas/文档历史 | 进行中 | 6C.1 画布命令本地验收中，提交后核实精确 SHA/CI | 无 | 6C.1 推送验收后进入 6C.2 |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
 
 阶段记录模板（每次更新保留必要历史，不把模板当作证据）：
@@ -474,3 +474,12 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **手工验收**：Windows PTY 编译入口执行 init/create/save/undo/read/undo/move/undo/redo；读写后按规定报 IO 历史锁定，成功编辑后恢复撤销重做。缺失文件 read 失败后，无参 save 仍使用原默认路径；Ctrl+D 正常退出，退出码 0。浏览器显示与 canvas 留待 6C，未将它们计入本阶段已通过项。
 - **远程验收**：实现提交 `4ef55729998aa613816ffec88a24b57889efa54f` 已推送，SSH ls-remote 与其精确一致；[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) 的 Windows/Linux check runs 均为 completed/success，head_sha 均对应本实现。GitHub 页面连接超时后，通过公开 check-runs API 取得精确结果。
 - **架构与下一步**：Facade 负责 IO 编排、路径、历史和输出，文件适配器不持有会话；Command、Composite、Factory/Registry 沿用既有职责，无新增名字分派或设计模式。根 README、架构、过程记录与方案同步。6B 完成，无阻塞；下一阶段 6C 实现 canvas 查询/修改、尺寸与 viewBox 同步、完整文档历史和浏览器预览验收。本轮停在 6B，不实现 box、不创建 final tag；本次文档提交自身 SHA 与 CI 在阶段报告核实，避免自引用。
+
+
+### 阶段 6B 复核与 6C.1 执行记录（2026-10-29）
+
+- **长文件名修复**：`1e654b604b20e8ccf9cac9125368cbd11ad82df4` 已独立推送并经远程 SHA 核实；[CI 40820201752](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40820201752) Windows/Linux 均 success。真实文件系统验证 214/255 字符目标首次与覆盖保存，目录无临时文件；36 文件 708 项及本地全部质量检查通过。
+- **6C.1 实现**：SvgDocument.resize 先校验两个正有限尺寸，再同步宽高与 viewBox；EditorSession 显式登记 canvas。无参输出 `canvas WxH`，两个参数成功输出 `canvas resized to WxH`，单参数或额外参数报 usage。查询与失败保留文档、默认路径和双栈，成功修改（含相同尺寸）清空并锁定历史，下一条成功编辑开始新历史。图形树、实例、局部属性、根元数据不变。
+- **模式与范围**：沿用 Facade 编排与领域封装，canvas 是文档命令，不额外创建可撤销 Command；帮助来自既有注册表，无新增分派或设计模式。领域、会话及源码/编译入口回归已补齐；6C.2 综合文件会话与浏览器预览在本模块推送及双平台 CI 验收后开始。
+
+- **6C.1 本地验收**：37 文件 740 项全部通过，新增领域 9、会话 21、源码/编译入口各 1；typecheck、pretest 构建通过，格式与 diff 检查完成后提交。提交与双平台 CI 待核实，暂不进入 6C.2。

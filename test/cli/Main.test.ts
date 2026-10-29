@@ -6,6 +6,47 @@ describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
   { entry: 'compiled', args: ['dist/main.js'] },
 ])('CLI $entry entry point', ({ args }) => {
+  it('queries and resizes the canvas, preserving history on query and failure', () => {
+    const result = spawnSync(process.execPath, args, {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      input: [
+        'canvas',
+        'init',
+        'create g scene',
+        'undo',
+        'canvas',
+        'canvas 10',
+        'redo',
+        'canvas 120.5 90.25',
+        'undo',
+        'redo',
+        'tree',
+        'create text t 1 2 "中文" in scene',
+        'canvas',
+        'undo',
+        'redo',
+      ].join('\r\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      "error: no document. use 'init' or 'read' first",
+    );
+    expect(result.stdout).toContain(
+      'canvas 800x600\nsvg> error: usage: canvas [w] [h]\nsvg> g#scene created',
+    );
+    expect(result.stdout).toContain(
+      'canvas resized to 120.5x90.25\nsvg> error: undo not allowed after io command\nsvg> error: undo not allowed after io command\nsvg> svg (120.5x90.25)\n└── g#scene',
+    );
+    expect(result.stdout).toContain(
+      'canvas 120.5x90.25\nsvg> text#t removed\nsvg> text#t created in g#scene',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(4);
+  });
+
   it('reorders siblings and retains redo across lexical and semantic failures', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
@@ -339,7 +380,7 @@ describe.each([
       'error: unterminated double quote\nsvg> error: x must be a finite number\nsvg> error: unknown attribute: id',
     );
     expect(result.stdout).toContain(
-      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\nsvg> text#title updated: text="My Diagram v2"',
+      'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\ncanvas [w] [h]\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
       'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
@@ -452,7 +493,7 @@ describe.each([
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
     expect(result.stdout).toContain(
-      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\nsvg> ',
+      'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\ncanvas [w] [h]\nsvg> ',
     );
     expect(result.stdout).toContain(
       'error: usage: help\nsvg> canvas 800x600 created',
