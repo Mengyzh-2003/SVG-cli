@@ -83,7 +83,7 @@ svg> redo
 g#example created
 ```
 
-This history example continues an initialized session such as the one above. Successful `init`, `read` and `save` clear both history stacks and lock undo/redo until the next successful edit. Failed file operations preserve history. Canvas operations will share these rules in 6C.
+This history example continues an initialized session such as the one above. Successful `init`, `read`, `save` and canvas resizing clear both history stacks and lock undo/redo until the next successful edit. Failed document operations and canvas queries preserve history.
 
 Stage 4B adds `delete <id>`. Deleting a group removes its entire subtree as one undo unit. Undo restores the original instances, attributes, parent and sibling position; redo deletes it again. Deleted ids become available for reuse. Failed deletion preserves the document and both history branches.
 
