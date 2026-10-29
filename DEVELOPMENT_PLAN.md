@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。阶段 1–6、7A/7B 已完成原定验收；显示格式、help 初始化口径、保存预算与工程检查优化已完成，现进行第 9 节的最终复核。当前进度以第 9 节为准，第 8 节保留原阶段证据；final 标签等待用户明确通知。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。阶段 1–6、7A/7B 已完成原定验收；显示格式、help 初始化口径、保存预算与工程检查优化及一轮追加复核均已完成。当前进度以第 9 节为准，第 8 节保留原阶段证据；开发与优化停止在可交付版本，final 标签等待用户明确通知。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -232,7 +232,8 @@ GitHub Actions 从阶段 1 起对每次 push 和 pull_request 执行；矩阵为
 2. npm ci，禁止在 CI 中更新锁文件。
 3. npm run format:check（Prettier 只检查，不自动修改）。
 4. npm run typecheck。
-5. npm test：pretest 钩子先执行 npm run build，再单次运行 Vitest（禁止 watch），同时测试源码和编译入口。直接执行 npm run build 仍可单独构建。
+5. npm run check:repo：检查生产架构、Markdown 和架构图源，并运行检查器自身回归。
+6. npm test：pretest 钩子先执行 npm run build，再单次运行 Vitest（禁止 watch），同时测试源码和编译入口。直接执行 npm run build 仍可单独构建。
 
 本项目先采用 Prettier 统一格式，语义质量由严格 TypeScript 和行为测试把关；暂不叠加另一套 lint 工具，也不设任意覆盖率百分比。脚本失败必须返回非零退出码，不能用跳过测试或忽略错误让门槛变绿。
 
@@ -532,7 +533,7 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 | O1 显示与 help 契约 | 已完成 | 39 文件 756 项通过；源码/编译完整响应与帮助前置条件覆盖；双平台 CI 成功 | `61e0cbd`；[CI 40833089819](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40833089819)，远程 SHA 已核实 | 无 |
 | O2 保存预算与 SVG 使用示例 | 已完成 | 39 文件 762 项通过；边界、真实保存和样例往返覆盖；完整版本双平台 CI 成功 | `153d0b6` + 样例补交 `b56a47d`；[CI 40834053211](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40834053211)，远程 SHA 已核实 | 无 |
 | O3 架构/文档质量门槛与性能测量 | 已完成 | 39 文件 762 项及仓库检查 3 项通过；性能测量完成；双平台 CI 成功 | `0aba113`；[CI 40834866669](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40834866669)，远程 SHA 已核实 | 无 |
-| O4 完整验收、文档精简与一轮复核 | 待远程验收 | 隔离检出安装/格式/类型/仓库检查/构建通过；39 文件 762 项与检查器 3 项通过；源码中文指南及两个编译示例回放通过；追加复核无新阻塞问题 | 本模块提交后核实 | 无；核实远程与双平台 CI 后停止，final 等用户确认 |
+| O4 完整验收、文档精简与一轮复核 | 已完成 | 隔离检出安装/格式/类型/仓库检查/构建通过；39 文件 762 项与检查器 3 项通过；源码中文指南及两个编译示例回放通过；追加复核无新阻塞问题；双平台 CI 成功 | `10fb724`；[CI 40836901933](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40836901933)，远程 SHA 已核实 | 无；停止开发与优化，final 等用户确认 |
 
 O1：沿用 Command/Composite/Factory/Facade；新增多态 GeometrySummary 只表达数据，Formatter 排版，不增加名字分派。tree 使用 w/h、文本坐标和线段端点，show 数值几何合行，欢迎语对齐。help 按需求 4.2 要求当前文档。需求 6/6.1A 和 show 通过源码/编译完整响应断言，保留扩展图形、转义及历史回归。文档中的历史阶段记录保留原事实，当前契约以本节和架构为准。
 
