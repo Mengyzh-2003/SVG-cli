@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="180" viewBox="0 0 400 180">
+  <g id="scene" fill="#4a90d9">
+    <g id="translated" transform="translate(60,40)">
+      <rect id="panel" x="0" y="0" width="120" height="60"/>
+      <text id="label" x="10" y="35" fill="white">局部坐标</text>
+    </g>
+    <g id="destination" fill="#f5a623" transform="translate(220,40)"/>
+  </g>
+</svg>

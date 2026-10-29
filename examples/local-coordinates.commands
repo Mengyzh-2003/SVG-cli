@@ -1,0 +1,8 @@
+read examples/local-coordinates.svg
+show panel
+move translated 10 0
+show panel
+save examples/local-moved.svg
+addto destination panel
+show panel
+save examples/local-regrouped.svg
