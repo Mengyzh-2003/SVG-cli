@@ -1,0 +1,47 @@
+@startuml
+!pragma layout smetana
+skinparam componentStyle rectangle
+top to bottom direction
+component "main.ts" as main
+component "CLI / Repl" as cli
+component "CommandParser" as parser
+component "Application / EditorSession" as app
+component "CommandDispatcher" as dispatcher
+component "HistoryManager" as history
+component "Commands / Command" as commands
+component "SVG IO" as io
+component "Shapes / ShapeFactory" as factory
+component "Domain / SvgDocument" as document
+component "Domain / Shape contracts" as shapes
+main --> cli
+main --> parser
+main --> app
+main --> factory
+main --> io
+cli --> parser
+cli --> app
+parser --> app : request types only
+app --> dispatcher
+app --> history
+app --> commands : create commands
+app --> factory
+app --> io
+app --> document
+app --> shapes
+history --> commands : Command interface
+commands --> document
+commands --> shapes
+io --> factory
+io --> document
+io --> shapes
+factory --> shapes
+document --> shapes
+note right of dispatcher
+  Name dispatch 1: command -> handler
+  Implemented; pending refactoring
+end note
+note right of factory
+  Name dispatch 2: type -> shape
+  Implemented; pending refactoring
+end note
+@enduml
