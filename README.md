@@ -1,6 +1,6 @@
 # SVG-cli
 
-SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Stage 6C adds canvas query and resizing, with combined document-session acceptance in progress. `box` is outside the current project scope.
+SVG-cli is a course and personal project for editing SVG documents from a command line. It is not a complete SVG editor. Stages 1–2 provide the TypeScript project, REPL, parser and quality checks. Stage 3 adds the domain model, shape factory, `init`, `create`, `tree`, `show` and `help`. Stage 4 connects `undo`/`redo` to creation, subtree deletion, movement, scaling and attribute editing. Stages 5A–5C add `group`, `addto`, `ungroup`, `front` and `back`. Stage 6A adds in-memory SVG decoding and serialization; 6B adds bounded UTF-8 file operations, REPL `read`/`save`, default paths and history integration. Stage 6C adds canvas query and resizing, with combined document-session regression tests; browser visual acceptance is pending. `box` is outside the current project scope.
 
 ## Requirements
 
@@ -209,8 +209,24 @@ The reader accepts XML 1.0 with an absent or UTF-8 encoding declaration. Input i
 
 Preserving extra attributes is not SVG sanitization. Event attributes, URLs and CSS references may remain in the output; the reader's lack of external resource resolution does not constrain a browser opening that output.
 
+## Reproducible SVG example
+
+After building, run the example from the repository root:
+
+```powershell
+Get-Content -Encoding utf8 examples/demo.commands | node dist/main.js
+```
+
+On a shell that supports input redirection:
+
+```sh
+node dist/main.js < examples/demo.commands
+```
+
+This writes [examples/demo.svg](examples/demo.svg), a 420 by 220 document containing all six supported types and escaped Chinese text. Open that local file in a browser to inspect it. The sample has been generated and parsed; browser visual acceptance is still pending (see the development plan).
+
 ## Quality checks
 
-GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 37 test files contain 740 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands, SVG decoding/serialization and real creation/query/help/history sessions through both source and compiled entry points. File-session and source/compiled CLI tests cover successful and failed IO, default paths, delayed state publication, overlapping application calls and history preservation. File-store tests cover actual-byte limits, strict UTF-8, Unicode paths and chunk boundaries, stable errors, same-directory replacement, old-file preservation and temporary cleanup after failures. Other coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution. SVG tests cover all six shapes, namespaces after reparenting, deterministic ids, Unicode/entities/whitespace, repeated round-trips, invalid XML and parsing limits; local HTTP and filesystem spies verify that external resources are not resolved.
+GitHub Actions runs a clean installation, formatting checks, type checks for source and tests, build and tests on Windows and Linux for each push and pull request. Prettier checks code and configuration; Markdown documents retain their existing formatting. `npm test` rebuilds the application through its pretest hook, then runs once and fails if no tests are found. The current 38 test files contain 746 tests covering domain invariants, factory registration, parsing, reversible create/delete/move/scale/set/group/addto/ungroup/front/back commands, SVG decoding/serialization and real creation/query/help/history sessions through both source and compiled entry points. File-session and source/compiled CLI tests cover successful and failed IO, default paths, delayed state publication, overlapping application calls and history preservation. File-store tests cover actual-byte limits, strict UTF-8, Unicode paths and chunk boundaries, stable errors, same-directory replacement, old-file preservation and temporary cleanup after failures. Other coverage includes subtree restoration, nested/empty group dissolution, protected-container rejection, cross-parent grouping/reparenting, root and nested sibling ordering, no-op edit history, direct and indirect cycle rejection, stale-topology failure and retry, reused-id identity checks, 2000-level operations, overflow atomicity, exact numeric/attribute restoration, strict attribute schemas, absent/empty/explicit style distinctions, local group styles, mixed history cycles, IO locking, error recovery and input failure during asynchronous execution. SVG tests cover all six shapes, namespaces after reparenting, deterministic ids, Unicode/entities/whitespace, repeated round-trips, invalid XML and parsing limits; local HTTP and filesystem spies verify that external resources are not resolved.
 
 See [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for current progress and acceptance evidence, [phase_cli_1.md](phase_cli_1.md) for requirements, and [doc/README.md](doc/README.md) for the architecture and process record.

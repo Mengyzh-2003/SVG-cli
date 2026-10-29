@@ -1,0 +1,12 @@
+# Run from the repository root. The last command writes examples/demo.svg.
+init 400 200
+create g scene
+create rect card 20 20 90 50 #f5a623 in scene
+create circle dot 160 45 25 #3b82f6 in scene
+create ellipse oval 260 45 40 22 #22c55e in scene
+create line rule 20 100 310 100 #334155 in scene
+create text label 20 145 "SVG 编辑器：中文 & < >" in scene
+set scene stroke-width 2
+move scene 5 5
+canvas 420 220
+save examples/demo.svg

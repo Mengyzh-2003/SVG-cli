@@ -2,7 +2,7 @@
 
 本项目按照 `phase_cli_1.md` 实现一个基于 TypeScript、面向对象的 SVG 命令行编辑器。本文件是最终提交文档的工作版本，先确定架构基线；实现过程中如有必要，将在提交记录中迭代本方案。
 
-架构基线：2026-10-26，v1.1；实现更新至 6B.2：2026-10-28。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部已实现编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 已接入会话、默认路径与成功后历史重置；canvas、浏览器显示和完整文档历史验收在 6C；远程验收见开发方案第 8 节。
+架构基线：2026-10-26，v1.1；实现更新至 6C.2：2026-10-29（浏览器预览待验收）。逐阶段实施、状态与验收见根目录 [DEVELOPMENT_PLAN.md](../DEVELOPMENT_PLAN.md) v1.1。Factory/Registry、EditorSession Facade、Create/Delete/Move/Scale/SetAttribute/Group/AddTo/Ungroup/ReorderCommand 和 HistoryManager 已落地，全部已实现编辑、查询与历史命令已连接真实入口。SvgReader/SvgWriter 完成内存编解码，SvgFileStore 完成文件边界，read/save 已接入会话、默认路径与成功后历史重置；canvas 与完整文档历史回归已接入 6C，浏览器显示待验收；远程验收见开发方案第 8 节。
 
 ## 架构方案
 
@@ -83,7 +83,7 @@ doc/
 
 6B.2 的 `CommandHandler`、`CommandDispatcher.dispatch` 和 `EditorSession.execute` 返回 `CommandResult | Promise<CommandResult>`，同步编辑/查询保持原行为，REPL 统一 await。Facade 对同步异常和异步拒绝统一生成错误结果；异步命令未完成时，重叠调用返回 `command in progress. wait for completion`，不额外排队或按名字分派，完成或失败后释放。正常 REPL 本身逐条执行；此约束只防止通过应用入口交错操作，不支持直接持有领域对象并发修改。
 
-当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/read/save/create/delete/move/scale/set/group/addto/ungroup/front/back/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数、CLI 参数规则与 SVG 属性转换；按必填参数、可选样式、尾部未加引号 in 的顺序解析 CLI。CreateCommand 保存图形实例、父 id 和首次同级位置，DeleteCommand 保存完整子树及原位置，MoveCommand/ScaleCommand 保存已校验的几何前后状态，SetAttributeCommand 保存属性状态，GroupCommand/AddToCommand/UngroupCommand/ReorderCommand 保存受控拓扑变更；HistoryManager 调用 execute/undo，领域接口恢复实例、拓扑或数值。应用层生成成功及恢复摘要。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。6A 内存 Reader/Writer 与 6B 文件适配、会话接线已实现，canvas 留待 6C。
+当前实际流程为 `main.ts → Repl → CommandParser → EditorSession → CommandDispatcher → CommandResult → TerminalOutput`。`CommandRequest`、`CommandToken` 和 `CommandExecutor` 属于应用层边界契约；Parser 返回 skip/error/command，保留参数的值、顺序与 quoted 信息。REPL 对每行原文调用 Parser，词法错误只呈现，不调用执行器。EditorSession Facade 已接入 init/read/save/canvas/create/delete/move/scale/set/group/addto/ungroup/front/back/tree/show/help/undo/redo，命令名由 CommandDispatcher 唯一分派；候选文档构造成功后才替换当前文档并重置历史。ShapeFactory 同一注册项保存创建函数、CLI 参数规则与 SVG 属性转换；按必填参数、可选样式、尾部未加引号 in 的顺序解析 CLI。CreateCommand 保存图形实例、父 id 和首次同级位置，DeleteCommand 保存完整子树及原位置，MoveCommand/ScaleCommand 保存已校验的几何前后状态，SetAttributeCommand 保存属性状态，GroupCommand/AddToCommand/UngroupCommand/ReorderCommand 保存受控拓扑变更；HistoryManager 调用 execute/undo，领域接口恢复实例、拓扑或数值。应用层生成成功及恢复摘要。查询和失败请求保留历史；undo/redo 先验证文档、参数，再检查锁定和空栈。6A 内存 Reader/Writer 与 6B 文件适配、会话接线已实现，6C 已实现 canvas 查询/修改及完整文档历史自动化回归。
 
 ### 4. PlantUML 组件图
 
@@ -179,7 +179,7 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 领域只承载 SVG 语义：Shape 封装附加属性并提供 svgAttributes/textContent 多态视图，TextShape 区分子文本与同名附加属性；SvgDocument 保存独立 viewBox 和根元数据，并在插入/分组时保留根 id。Writer 迭代读取统一树接口，保留层级顺序、缺省样式和附加属性，正确转义实体与 XML 空白；xmlchars 校验名称/字符，saxes 校验最终命名空间。Reader 将带前缀属性所需声明固化到节点本地，保证重组后可写。
 
-读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。CLI read/save、路径上下文与对应 IO 历史已在 6B.2 接入；canvas 和浏览器预览证据仍待 6C。
+读入仅支持六种图形及根 svg，几何为有限无单位数值；transform/字体等附加属性保留而不计算，未知元素明确拒绝，注释及原格式不保留。读写不承诺完整 SVG/CSS 引用系统或内容净化；保留的事件、URL/CSS 属性在浏览器中的行为不属于解析器的外部资源禁用范围。输入预算也不保证任意编辑扩大后的输出都能重新读入。CLI read/save、路径上下文与对应 IO 历史已在 6B.2 接入；6C 已接入 canvas 与完整文档历史回归，浏览器预览证据仍待验收。
 
 #### Facade：应用层的稳定入口
 
@@ -492,7 +492,11 @@ Reader 使用 saxes 的严格事件解析，在 opentagstart 限制总数和深�
 
 阶段 6B 一致性抽样（2026-10-28）：检查 EditorSession、CommandHandler、CommandDispatcher、main.ts、SvgFileStore 与 SvgFileError。main 显式装配文件适配器和工厂；Facade 编排 Reader/Writer、路径、历史和摘要，文件适配器只负责文本与文件系统。异步返回仅扩展应用契约，编辑命令继续构造注入与无参 execute/undo。领域、图形及编辑命令没有增加文件系统或应用层反向依赖；名字分派仍只在原 Dispatcher 和 ShapeFactory。文件 IO 不新增可撤销 Command 或仅有单一实现的 Strategy，canvas 尚未注册。
 
+阶段 6C 一致性抽样（2026-10-29）：检查 SvgDocument.resize、EditorSession 的 canvas 注册/处理器、HistoryManager 及 SvgReader/Writer。宽高和 viewBox 为领域私有状态，查询返回只读值；resize 校验全部输入后写入，不改唯一拓扑及图形属性。Facade 编排尺寸、路径、历史和摘要，领域没有增加应用层、CLI、文件系统依赖；查询/失败不重置历史，成功修改不作为可撤销编辑。沿用 Command、Composite、Factory/Registry 与 Facade，无新增名字分派或模式。代码与自动化已接线，浏览器显示尚未验收，不能据此宣称阶段 6C 全部完成。
+
 ## 质量保证手段
+
+阶段 6C 质量证据：38 文件 746 项通过，领域尺寸 9、canvas 会话 21、源码/编译画布入口各 1、真实文件文档混合历史 4、源码/编译完整文件会话各 1，共新增 38 项；6B 长文件名复核另新增 2 项。覆盖查询不改历史、失败不改状态、成功修改重置历史、同尺寸修改和独立 viewBox、保留树身份/路径/元数据、六类型编辑后两份文件字节一致。Windows 真实终端回放成功；examples/demo.svg 由编译入口真实生成。6C.1 精确 SHA 双平台 CI 已通过；6C.2 推送与 CI 见开发方案。浏览器工具未能可靠识别 URL 并停止控制，显示预览未验收，未计入已通过证据。
 
 阶段 6B 质量证据：36 文件 706 项通过；文件适配新增 9、文件会话新增 28、Dispatcher 异步转发新增 1、源码/编译入口各新增 1。typecheck、pretest 构建、format:check、git diff --check 均通过。验证实际字节读取限额、严格 UTF-8、同目录临时文件替换与失败清理、默认路径、完整验证后发布文档和 warnings、读写失败保留文档/路径/双栈、延迟 IO 与重叠请求拒绝及恢复。Windows PTY 编译入口回放读写后历史锁定、新编辑后 undo/redo、read 失败后无参 save 沿用旧路径和 Ctrl+D 退出 0。6B.1 与 6B.2 分别独立推送，并通过精确实现 SHA 的 Windows/Linux CI，链接见开发方案第 8 节。canvas 和浏览器显示尚未验收，留待 6C。
 

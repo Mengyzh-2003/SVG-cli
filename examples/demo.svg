@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="220" viewBox="0 0 420 220">
+  <g stroke-width="2" id="scene">
+    <rect x="25" y="25" width="90" height="50" fill="#f5a623" id="card"/>
+    <circle cx="165" cy="50" r="25" fill="#3b82f6" id="dot"/>
+    <ellipse cx="265" cy="50" rx="40" ry="22" fill="#22c55e" id="oval"/>
+    <line x1="25" y1="105" x2="315" y2="105" stroke="#334155" id="rule"/>
+    <text x="25" y="150" id="label">SVG 编辑器：中文 &amp; &lt; &gt;</text>
+  </g>
+</svg>

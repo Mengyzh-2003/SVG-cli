@@ -5,6 +5,7 @@ import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SvgReader } from '../../src/io/SvgReader.js';
+import { SvgWriter } from '../../src/io/SvgWriter.js';
 
 describe.each([
   { entry: 'source', args: ['--import', 'tsx', 'src/main.ts'] },
@@ -19,6 +20,112 @@ describe.each([
 
   afterEach(() => {
     fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  it('round-trips all six shapes after canvas, composite edits and sibling changes', () => {
+    const saved = join(directory, '画布 resized.svg');
+    const copy = join(directory, 'copy.svg');
+    const result = spawnSync(process.execPath, args, {
+      cwd: root,
+      input: [
+        'init 400 200',
+        'create g scene',
+        'create rect r 10 20 80 40 #f5a623 in scene',
+        'create circle c 150 45 20 #3b82f6 in scene',
+        'create ellipse e 240 45 35 18 #22c55e in scene',
+        'create line l 10 90 280 90 #334155 in scene',
+        'create text t 10 125 "中文 & < > \\"quoted\\"" in scene',
+        'group branch r c',
+        'addto branch e',
+        'move branch 5 10',
+        'scale branch 1.2',
+        'set scene stroke-width 2',
+        'front l',
+        'back branch',
+        'canvas 420 220',
+        'undo',
+        'canvas',
+        `save ${JSON.stringify(saved)}`,
+        'create g disposable',
+        'undo',
+        'canvas 0 20',
+        'redo',
+        'undo',
+        `read ${JSON.stringify(saved)}`,
+        'redo',
+        'canvas',
+        'show t',
+        'tree',
+        `save ${JSON.stringify(copy)}`,
+      ].join('\n'),
+      encoding: 'utf8',
+      timeout: 10000,
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain(
+      'canvas resized to 420x220\nsvg> error: undo not allowed after io command\nsvg> canvas 420x220',
+    );
+    expect(result.stdout).toContain(
+      'error: canvas width must be a positive finite number\nsvg> g#disposable created\nsvg> g#disposable removed',
+    );
+    expect(result.stdout).toContain(
+      `read ${saved} (7 elements)\nsvg> error: undo not allowed after io command\nsvg> canvas 420x220`,
+    );
+    expect(result.stdout).toContain(
+      'text#t  parent=g#scene\n  x=10\n  y=125\n  text="中文 & < > \\"quoted\\""',
+    );
+    expect(result.stdout.match(/error: /g)).toHaveLength(3);
+    expect(result.stdout).not.toContain('warning:');
+    const source = fs.readFileSync(saved, 'utf8');
+    expect(fs.readFileSync(copy, 'utf8')).toBe(source);
+    const restored = new SvgReader().read(source);
+    const document = restored.document;
+    expect(restored.warnings).toEqual([]);
+    expect([document.width, document.height, document.viewBox]).toEqual([
+      420,
+      220,
+      '0 0 420 220',
+    ]);
+    expect(
+      document
+        .walk()
+        .map((shape) => [
+          shape.type,
+          shape.id,
+          document.parentOf(shape.id)?.id ?? null,
+        ]),
+    ).toEqual([
+      ['g', 'scene', null],
+      ['g', 'branch', 'scene'],
+      ['rect', 'r', 'branch'],
+      ['circle', 'c', 'branch'],
+      ['ellipse', 'e', 'branch'],
+      ['text', 't', 'scene'],
+      ['line', 'l', 'scene'],
+    ]);
+    expect(document.require('r').geometry).toEqual({
+      x: 18,
+      y: 36,
+      width: 96,
+      height: 48,
+    });
+    expect(document.require('c').geometry).toEqual({ cx: 186, cy: 66, r: 24 });
+    expect(document.require('e').geometry).toEqual({
+      cx: 294,
+      cy: 66,
+      rx: 42,
+      ry: 21.599999999999998,
+    });
+    expect(document.require('scene').strokeWidth).toBe(2);
+    expect(document.require('branch').fill).toBeUndefined();
+    expect(document.require('t').textContent).toBe('中文 & < > "quoted"');
+    expect(new SvgWriter().write(document)).toBe(source);
+    expect(fs.readdirSync(directory).sort()).toEqual([
+      'copy.svg',
+      '画布 resized.svg',
+    ]);
   });
 
   it('awaits file commands through EOF, preserves history on failure and round-trips quoted paths and SVG values', () => {
