@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { SvgReader } from './SvgReader.js';
 import { SvgFileError } from './SvgFileError.js';
 
@@ -77,10 +77,7 @@ export class SvgFileStore {
 
   async write(path: string, source: string): Promise<void> {
     const directory = dirname(path);
-    const temporaryPath = join(
-      directory,
-      `.${basename(path)}.${randomUUID()}.tmp`,
-    );
+    const temporaryPath = join(directory, `.svg-cli-${randomUUID()}.tmp`);
     let file: Awaited<ReturnType<typeof fs.open>> | undefined;
     let temporaryMayExist = false;
 

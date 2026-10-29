@@ -79,6 +79,27 @@ describe('SvgFileStore', () => {
     await expect(fs.readdir(directory)).resolves.toEqual(['drawing.svg']);
   });
 
+  it.each([214, 255])(
+    'creates and replaces a file with a %i-character legal basename',
+    async (length) => {
+      const name = 'x'.repeat(length - 4) + '.svg';
+      const path = join(directory, name);
+      // Prove this destination is supported by the actual filesystem first.
+      await fs.writeFile(path, 'ordinary write');
+      await fs.unlink(path);
+
+      await store.write(path, '<svg/>');
+      await expect(fs.readFile(path, 'utf8')).resolves.toBe('<svg/>');
+      await expect(fs.readdir(directory)).resolves.toEqual([name]);
+
+      await store.write(path, '<svg width="10"/>');
+      await expect(fs.readFile(path, 'utf8')).resolves.toBe(
+        '<svg width="10"/>',
+      );
+      await expect(fs.readdir(directory)).resolves.toEqual([name]);
+    },
+  );
+
   it('preserves the old file and removes the temporary file when replacement fails', async () => {
     const path = join(directory, 'drawing.svg');
     await fs.writeFile(path, 'old document', 'utf8');

@@ -150,13 +150,15 @@ Reader/Writer 接口用于隔离 IO。当前不把单一实现称为 Strategy，
 
 异步应用边界：CommandHandler、CommandDispatcher.dispatch 与 EditorSession.execute 返回 `CommandResult | Promise<CommandResult>`，同步编辑保持既有行为，REPL 统一 await。Facade 捕获同步异常与异步拒绝；异步请求挂起期间拒绝通过应用入口发起的重叠调用，返回 `command in progress. wait for completion`，无论成功失败均释放执行门。这是会话串行约束，不承诺绕过 Facade 直接修改领域对象的并发安全。
 
-6C：补齐 canvas 查询与修改以及所有文档命令的历史规则；接入 read/save 完整 CLI 回放。
+6C.1：实现领域受控画布尺寸修改及 CLI canvas 查询/修改，完整校验宽高后同步 viewBox 为 0 0 w h；成功修改才重置历史，查询不影响路径和历史。覆盖领域不变量、应用会话、帮助和源码/编译入口。
+
+6C.2：补齐 init/read/save/canvas 全部文档命令与编辑/查询混合历史回放、文件往返与浏览器预览；同步使用说明、架构、自查及验收记录。6C.1 必须独立验收、推送并核实双平台 CI 后再进入 6C.2。
 
 验收：显式 id 重复拒绝、自动 id 不与后续显式 id 冲突、每个补全产生规定 warning；读入失败保留当前文档/路径/历史。文本含中文、引号、&、<、> 可保存读回；fill/stroke 省略时保持属性缺省，不写入人为默认值。保存后能在浏览器显示，并读回相同尺寸、顺序、结构、属性和文本。
 
 成功 init/read/save/canvas 修改后，undo 和 redo 均输出 error: undo not allowed after io command；下一次成功编辑开始新历史。canvas 无参、tree/show/help 不改历史；失败的文档命令也不锁定或清空已有历史。
 
-提交粒度：6A.0—6A.4、6B.1、6B.2、6C。每个小模块分别验收、提交、推送并核对精确 SHA 的双平台 CI 后再继续。XML 内存往返测试先于文件适配测试，防止 IO 与模型问题混在一起。
+提交粒度：6A.0—6A.4、6B.1、6B.2、6C.1、6C.2。每个小模块分别验收、提交、推送并核对精确 SHA 的双平台 CI 后再继续。XML 内存往返测试先于文件适配测试，防止 IO 与模型问题混在一起。
 
 ### 阶段 7：端到端验收与提交收尾
 
