@@ -34,11 +34,11 @@ describe('document queries', () => {
         'svg (400x200)',
         '├── g#scene',
         '│   ├── g#node',
-        '│   │   ├── rect#start x=1.5 y=-2 width=30 height=40 fill=#eee',
-        '│   │   └── text#label x=2 y=3 text="中文 # in"',
+        '│   │   ├── rect#start x=1.5 y=-2 w=30 h=40 fill=#eee',
+        '│   │   └── text#label (2,3) "中文 # in"',
         '│   └── circle#dot cx=4 cy=5 r=6 fill=red',
         '├── ellipse#oval cx=7 cy=8 rx=9 ry=10',
-        '└── line#edge x1=0 y1=1 x2=2 y2=3 stroke=black',
+        '└── line#edge (0,1) -> (2,3) stroke=black',
       ],
     });
   });
@@ -46,15 +46,11 @@ describe('document queries', () => {
   it.each([
     ['scene', 'svg', []],
     ['node', 'g#scene', []],
-    [
-      'start',
-      'g#node',
-      ['x=1.5', 'y=-2', 'width=30', 'height=40', 'fill=#eee'],
-    ],
-    ['label', 'g#node', ['x=2', 'y=3', 'text="中文 # in"']],
-    ['dot', 'g#scene', ['cx=4', 'cy=5', 'r=6', 'fill=red']],
-    ['oval', 'svg', ['cx=7', 'cy=8', 'rx=9', 'ry=10']],
-    ['edge', 'svg', ['x1=0', 'y1=1', 'x2=2', 'y2=3', 'stroke=black']],
+    ['start', 'g#node', ['x=1.5 y=-2 width=30 height=40', 'fill=#eee']],
+    ['label', 'g#node', ['x=2 y=3', 'text="中文 # in"']],
+    ['dot', 'g#scene', ['cx=4 cy=5 r=6', 'fill=red']],
+    ['oval', 'svg', ['cx=7 cy=8 rx=9 ry=10']],
+    ['edge', 'svg', ['x1=0 y1=1 x2=2 y2=3', 'stroke=black']],
   ] as const)(
     'shows local attributes and parent of %s',
     (id, parent, attributes) => {
@@ -75,8 +71,8 @@ describe('document queries', () => {
       status: 'success',
       lines: [
         'g#node',
-        '├── rect#start x=1.5 y=-2 width=30 height=40 fill=#eee',
-        '└── text#label x=2 y=3 text="中文 # in"',
+        '├── rect#start x=1.5 y=-2 w=30 h=40 fill=#eee',
+        '└── text#label (2,3) "中文 # in"',
       ],
     });
     expect(executeLine(session, 'tree dot')).toEqual({
@@ -172,7 +168,7 @@ describe('polymorphic property presentation', () => {
       '  stroke-width=0',
     ]);
     expect(formatter.tree(document)).toContain(
-      '    └── rect#plain x=0 y=0 width=1 height=2',
+      '    └── rect#plain x=0 y=0 w=1 h=2',
     );
   });
 
@@ -189,8 +185,7 @@ describe('polymorphic property presentation', () => {
     const lines = new DocumentFormatter().show(document, shape.id);
     expect(lines).toEqual([
       'text#"two\\nlines"  parent=svg',
-      '  x=0',
-      '  y=1',
+      '  x=0 y=1',
       '  text="中文 \\"quote\\"\\\\\\n\\t\\u001b\\u2028"',
       '  fill="two colors"',
     ]);

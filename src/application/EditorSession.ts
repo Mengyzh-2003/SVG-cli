@@ -228,6 +228,7 @@ export class EditorSession implements CommandExecutor {
   }
 
   #help(request: CommandRequest): CommandResult {
+    this.#requireDocument();
     if (request.args.length !== 0) throw new Error('usage: help');
     return {
       status: 'success',

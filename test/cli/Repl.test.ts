@@ -31,7 +31,9 @@ describe('Repl', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenNthCalledWith(1, { name: 'first', args: [] });
     expect(execute).toHaveBeenNthCalledWith(2, { name: 'second', args: [] });
-    expect(output).toContain('SVG CLI — document editor\nsvg> ');
+    expect(output).toContain(
+      "svg-editor 0.1 — type 'help' for commands\nsvg> ",
+    );
     expect(output).toContain('handled first\nsvg> handled second\nsvg> ');
     expect(output).not.toContain('script comment');
   });
@@ -160,7 +162,7 @@ describe('Repl', () => {
     const output = await runRepl('', { execute });
 
     expect(execute).not.toHaveBeenCalled();
-    expect(output).toContain('SVG CLI — document editor');
+    expect(output).toContain("svg-editor 0.1 — type 'help' for commands");
   });
 
   it('forwards parsed colours and quoted text through CRLF and a final line without newline', async () => {

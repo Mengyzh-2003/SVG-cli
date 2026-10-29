@@ -9,6 +9,13 @@ export interface ShapeStyleOptions {
   readonly extraAttributes?: Readonly<Record<string, string>>;
 }
 
+/** Local geometry data, without terminal strings or layout decisions. */
+export interface GeometrySummary {
+  readonly attributes: Readonly<Record<string, number | string>>;
+  readonly points?: readonly (readonly [number, number])[];
+  readonly text?: string;
+}
+
 export abstract class Shape {
   readonly #id: string;
   #fill: string | undefined;
@@ -128,6 +135,10 @@ export abstract class Shape {
   /** Detached, read-only local geometry; extensions override this view. */
   get geometry(): Readonly<Record<string, number | string>> {
     return Object.freeze({});
+  }
+
+  get geometrySummary(): GeometrySummary {
+    return Object.freeze({ attributes: this.geometry });
   }
 
   get attributes(): Readonly<Record<string, number | string>> {

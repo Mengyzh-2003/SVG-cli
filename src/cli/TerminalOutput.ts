@@ -9,7 +9,7 @@ export class TerminalOutput {
   }
 
   welcome(): void {
-    this.#output.write('SVG CLI — document editor\n');
+    this.#output.write("svg-editor 0.1 — type 'help' for commands\n");
   }
 
   render(result: CommandResult): void {

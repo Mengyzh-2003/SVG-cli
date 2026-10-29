@@ -87,10 +87,10 @@ describe.each([
       'g#branch sibling order restored in g#scene',
     );
     expect(result.stdout).toContain(
-      'text#label  parent=g#branch\n  x=5\n  y=6\n  text="中文 # in"',
+      'text#label  parent=g#branch\n  x=5 y=6\n  text="中文 # in"',
     );
     expect(result.stdout).toContain(
-      'svg (800x600)\n├── g#tail\n└── g#scene\n    ├── ellipse#c cx=1 cy=2 rx=3 ry=4\n    ├── circle#b cx=2 cy=3 r=4\n    ├── rect#a x=1 y=2 width=3 height=4\n    └── g#branch\n        └── text#label x=5 y=6 text="中文 # in"',
+      'svg (800x600)\n├── g#tail\n└── g#scene\n    ├── ellipse#c cx=1 cy=2 rx=3 ry=4\n    ├── circle#b cx=2 cy=3 r=4\n    ├── rect#a x=1 y=2 w=3 h=4\n    └── g#branch\n        └── text#label (5,6) "中文 # in"',
     );
     expect(result.stdout).toContain(
       'g#scene sibling order restored in svg\nsvg> svg (800x600)\n├── g#scene',
@@ -139,13 +139,13 @@ describe.each([
       'g#branch ungrouped; 2 children promoted into g#scene\nsvg> rect#r  parent=g#scene',
     );
     expect(result.stdout).toContain(
-      'text#t  parent=g#inner\n  x=1\n  y=2\n  text="中文"',
+      'text#t  parent=g#inner\n  x=1 y=2\n  text="中文"',
     );
     expect(result.stdout).toContain(
       'g#branch restored with 2 children\nsvg> error: cannot ungroup top-level container: scene\nsvg> error: unterminated double quote\nsvg> g#branch ungrouped; 2 children promoted into g#scene',
     );
     expect(result.stdout).toContain(
-      'g#scene\n├── circle#before cx=1 cy=2 r=3\n├── rect#r x=10 y=20 width=30 height=40\n├── g#inner\n│   └── text#t x=1 y=2 text="中文"\n└── circle#after cx=4 cy=5 r=6',
+      'g#scene\n├── circle#before cx=1 cy=2 r=3\n├── rect#r x=10 y=20 w=30 h=40\n├── g#inner\n│   └── text#t (1,2) "中文"\n└── circle#after cx=4 cy=5 r=6',
     );
     expect(result.stdout).toContain(
       'g#empty ungrouped; 0 children promoted into g#scene\nsvg> g#empty restored with 0 children\nsvg> ',
@@ -190,7 +190,7 @@ describe.each([
       'error: cannot add a container into its own descendant: scene\nsvg> g#branch added to g#target',
     );
     expect(result.stdout).toContain(
-      'text#t  parent=g#branch\n  x=1\n  y=2\n  text="中文"',
+      'text#t  parent=g#branch\n  x=1 y=2\n  text="中文"',
     );
     expect(result.stdout).toContain(
       'error: cannot add a container into its own descendant: target\nsvg> g#branch  parent=g#target',
@@ -199,10 +199,10 @@ describe.each([
       'g#branch restored into g#scene\nsvg> g#branch  parent=g#scene',
     );
     expect(result.stdout).toContain(
-      'g#branch\n├── circle#c cx=1 cy=2 r=3\n└── text#t x=1 y=2 text="中文"',
+      'g#branch\n├── circle#c cx=1 cy=2 r=3\n└── text#t (1,2) "中文"',
     );
     expect(result.stdout).toContain(
-      'g#branch\n├── text#t x=1 y=2 text="中文"\n└── circle#c cx=1 cy=2 r=3',
+      'g#branch\n├── text#t (1,2) "中文"\n└── circle#c cx=1 cy=2 r=3',
     );
     expect(result.stdout.match(/error: /g)).toHaveLength(2);
   });
@@ -282,10 +282,10 @@ describe.each([
       'error: scale factor must be positive\nsvg> g#scene scaled by 0.5',
     );
     expect(result.stdout).toContain(
-      'text#label  parent=g#scene\n  x=5\n  y=10\n  text="中文"',
+      'text#label  parent=g#scene\n  x=5 y=10\n  text="中文"',
     );
     const line =
-      'line#edge  parent=g#scene\n  x1=-0.5\n  y1=1\n  x2=1.5\n  y2=2\n  stroke=black';
+      'line#edge  parent=g#scene\n  x1=-0.5 y1=1 x2=1.5 y2=2\n  stroke=black';
     expect(result.stdout.split(line)).toHaveLength(3);
     expect(result.stdout).toContain(
       `error: cx must be a finite number\nsvg> ${line}`,
@@ -294,7 +294,7 @@ describe.each([
       'g#scene deleted\nsvg> g#scene restored into svg\nsvg> svg (800x600)',
     );
     expect(result.stdout).toContain(
-      'line#edge x1=-0.5 y1=1 x2=1.5 y2=2 stroke=black',
+      'line#edge (-0.5,1) -> (1.5,2) stroke=black',
     );
     expect(result.stdout.match(/error: /g)).toHaveLength(3);
     expect(result.stdout).toContain('error: undo not allowed after io command');
@@ -331,7 +331,7 @@ describe.each([
       'g#scene moved by (0,100)\nsvg> g#scene moved back by (0,-100)',
     );
     expect(result.stdout).toContain(
-      'circle#c  parent=g#scene\n  cx=130\n  cy=100\n  r=10',
+      'circle#c  parent=g#scene\n  cx=130 cy=100 r=10',
     );
   });
 
@@ -383,7 +383,7 @@ describe.each([
       'set <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\ncanvas [w] [h]\nsvg> text#title updated: text="My Diagram v2"',
     );
     expect(result.stdout).toContain(
-      'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1\n  y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
+      'g#scene updated: fill=#f5a623\nsvg> text#title  parent=g#scene\n  x=1 y=2\n  text="My Diagram v2"\nsvg> g#scene attribute removed: fill\nsvg> g#scene  parent=svg\nsvg> ',
     );
     expect(result.stdout).toContain(
       'text#title updated: text="中文 # in \\"quoted\\" \\\\ path"',
@@ -392,7 +392,7 @@ describe.each([
       'text#title updated: text=""\nsvg> text#title updated: text="中文 # in \\"quoted\\" \\\\ path"',
     );
     expect(result.stdout).toContain(
-      'text#title  parent=g#scene\n  x=-0.1\n  y=2\n  text="中文 # in \\"quoted\\" \\\\ path"',
+      'text#title  parent=g#scene\n  x=-0.1 y=2\n  text="中文 # in \\"quoted\\" \\\\ path"',
     );
     expect(result.stdout).toContain(
       'canvas 20x30 created\nsvg> error: undo not allowed after io command\nsvg> ',
@@ -476,10 +476,11 @@ describe.each([
     expect(result.stdout.match(/error: /g)).toHaveLength(6);
   });
 
-  it('offers help before init and remains usable after invalid help', () => {
+  it('rejects help before init and remains usable after invalid help', () => {
     const result = spawnSync(process.execPath, args, {
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
-      input: 'help\nhelp extra\ninit\ncreate circle c 1 2 3\nshow c\nhelp\n',
+      input:
+        'help\nhelp extra\ninit\nhelp extra\ncreate circle c 1 2 3\nshow c\nhelp\n',
       encoding: 'utf8',
       timeout: 10000,
     });
@@ -488,7 +489,7 @@ describe.each([
     expect(result.stderr).toBe('');
     expect(
       result.stdout.match(/Available commands \(current implementation\):/g),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(result.stdout).toContain(
       'create text <id> <x> <y> "content" [in <containerId>]',
     );
@@ -496,12 +497,10 @@ describe.each([
       'tree [id]\nshow <id>\nhelp\nundo\nredo\ndelete <id>\nmove <id> <dx> <dy>\nscale <id> <factor>\nset <id> <attr> <value>\ngroup <newGid> <id1> [id2 ...]\naddto <gid> <id>\nungroup <gid>\nfront <id>\nback <id>\nread <file.svg>\nsave [file.svg]\ncanvas [w] [h]\nsvg> ',
     );
     expect(result.stdout).toContain(
-      'error: usage: help\nsvg> canvas 800x600 created',
+      "error: no document. use 'init' or 'read' first\nsvg> error: no document. use 'init' or 'read' first\nsvg> canvas 800x600 created\nsvg> error: usage: help",
     );
-    expect(result.stdout).toContain(
-      'circle#c  parent=svg\n  cx=1\n  cy=2\n  r=3',
-    );
-    expect(result.stdout.match(/error: /g)).toHaveLength(1);
+    expect(result.stdout).toContain('circle#c  parent=svg\n  cx=1 cy=2 r=3');
+    expect(result.stdout.match(/error: /g)).toHaveLength(3);
   });
 
   it('queries a real document and continues after query errors', () => {
@@ -526,10 +525,10 @@ describe.each([
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
     expect(result.stdout).toContain(
-      'svg (400x200)\n└── g#scene\n    ├── rect#r x=1 y=2 width=3 height=4 fill=red\n    └── text#label x=5 y=6 text="中文 # in"',
+      'svg (400x200)\n└── g#scene\n    ├── rect#r x=1 y=2 w=3 h=4 fill=red\n    └── text#label (5,6) "中文 # in"',
     );
     expect(result.stdout).toContain(
-      'rect#r  parent=g#scene\n  x=1\n  y=2\n  width=3\n  height=4\n  fill=red',
+      'rect#r  parent=g#scene\n  x=1 y=2 width=3 height=4\n  fill=red',
     );
     expect(result.stdout).toContain(
       'error: no such shape: missing\nsvg> g#scene\n├── rect#r',
@@ -547,7 +546,9 @@ describe.each([
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stderr).toBe('');
-    expect(result.stdout).toContain('SVG CLI — document editor');
+    expect(result.stdout).toContain(
+      "svg-editor 0.1 — type 'help' for commands",
+    );
     expect(result.stdout.match(/svg> /g)).toHaveLength(5);
     expect(result.stdout).toContain('canvas 800x600 created');
     expect(result.stdout).toContain('rect#r1 created');

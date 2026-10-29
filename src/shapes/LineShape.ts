@@ -1,4 +1,7 @@
-import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type {
+  GeometrySummary,
+  ShapeStyleOptions,
+} from '../domain/shapes/Shape.js';
 import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 
 export class LineShape extends GeometryShape {
@@ -20,6 +23,16 @@ export class LineShape extends GeometryShape {
 
   get type(): string {
     return 'line';
+  }
+
+  override get geometrySummary(): GeometrySummary {
+    return Object.freeze({
+      attributes: Object.freeze({}),
+      points: Object.freeze([
+        Object.freeze([this.x1, this.y1] as const),
+        Object.freeze([this.x2, this.y2] as const),
+      ]),
+    });
   }
 
   get x1(): number {

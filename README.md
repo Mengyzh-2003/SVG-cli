@@ -15,6 +15,8 @@ npm run cli
 
 启动后显示欢迎语与 `svg>` 提示符。源码入口使用 tsx；也可以先构建再直接运行编译产物：
 
+先执行 `init` 或 `read <file.svg>` 建立当前文档，再用 `help` 查看完整语法；未建立文档时，其他已注册命令统一报无文档错误。
+
 ```sh
 npm run build
 node dist/main.js

@@ -62,6 +62,44 @@ describe.each([
       `read ${JSON.stringify(imported)}`,
       'tree',
     ]);
+    expect(output.replaceAll('\r\n', '\n')).toBe(
+      [
+        "svg-editor 0.1 — type 'help' for commands",
+        'svg> canvas 800x600 created',
+        'svg> rect#bg created',
+        'svg> text#title created',
+        'svg> circle#c1 created',
+        'svg> rect#box created',
+        'svg> g#markers created with 2 children',
+        'svg> svg (800x600)',
+        '├── rect#bg x=0 y=0 w=800 h=600 fill=#ffffff',
+        '├── text#title (20,40) "My Diagram"',
+        '└── g#markers',
+        '    ├── circle#c1 cx=100 cy=100 r=20 fill=red',
+        '    └── rect#box x=200 y=80 w=60 h=60 fill=#3366ff',
+        'svg> circle#c1 moved to (130,100)',
+        'svg> circle#c1 moved back to (100,100)',
+        'svg> circle#c1 moved to (130,100)',
+        'svg> text#title updated: text="My Diagram v2"',
+        'svg> text#title updated: text="My Diagram"',
+        'svg> error: cannot group a container into its own descendant: markers',
+        'svg> rect#box deleted',
+        'svg> rect#box restored into g#markers',
+        `svg> saved to ${saved} (5 elements)`,
+        'svg> error: undo not allowed after io command',
+        'svg> warning: assigned id rect1 to unnamed <rect>',
+        `read ${imported} (7 elements)`,
+        'svg> svg (400x300)',
+        '├── rect#rect1 x=0 y=0 w=400 h=300 fill=#ffffff',
+        '├── text#t1 (10,290) "imported"',
+        '├── circle#c1 cx=50 cy=50 r=10',
+        '├── g#g1',
+        '│   ├── rect#r2 x=0 y=0 w=10 h=10',
+        '│   └── circle#c2 cx=5 cy=5 r=2',
+        '└── ellipse#e1 cx=1 cy=2 rx=3 ry=4',
+        'svg> ',
+      ].join('\n'),
+    );
     expect(output).toContain('g#markers created with 2 children');
     expect(output).toContain(
       'circle#c1 moved to (130,100)\nsvg> circle#c1 moved back to (100,100)\nsvg> circle#c1 moved to (130,100)',
@@ -130,6 +168,34 @@ describe.each([
       'set process-label text "处理数据 v2"',
       `save ${JSON.stringify(saved)}`,
     ]);
+    expect(output.replaceAll('\r\n', '\n')).toBe(
+      [
+        "svg-editor 0.1 — type 'help' for commands",
+        'svg> canvas 800x600 created',
+        'svg> svg> g#flowchart created',
+        'svg> g#node1 created in g#flowchart',
+        'svg> rect#start created in g#node1',
+        'svg> text#start-label created in g#node1',
+        'svg> g#node2 created in g#flowchart',
+        'svg> rect#process created in g#node2',
+        'svg> text#process-label created in g#node2',
+        'svg> line#arrow1 created in g#flowchart',
+        'svg> svg (800x600)',
+        '└── g#flowchart',
+        '    ├── g#node1',
+        '    │   ├── rect#start x=120 y=100 w=160 h=60 fill=#4a90d9',
+        '    │   └── text#start-label (155,135) "开始"',
+        '    ├── g#node2',
+        '    │   ├── rect#process x=520 y=100 w=160 h=60 fill=#f5a623',
+        '    │   └── text#process-label (545,135) "处理数据"',
+        '    └── line#arrow1 (280,130) -> (520,130) stroke=black',
+        'svg> g#node2 moved by (0,100)',
+        'svg> g#node2 moved back by (0,-100)',
+        'svg> text#process-label updated: text="处理数据 v2"',
+        `svg> saved to ${saved} (8 elements)`,
+        'svg> ',
+      ].join('\n'),
+    );
     expect(output).not.toMatch(/error:|warning:/);
     expect(output).toContain(
       'g#node2 moved by (0,100)\nsvg> g#node2 moved back by (0,-100)',
@@ -172,6 +238,39 @@ describe.each([
       x2: 520,
       y2: 130,
     });
+  });
+
+  it('matches the section 5 show block and preserves redo through queries', () => {
+    expect(
+      run([
+        'init',
+        'create circle c1 100 100 20 red',
+        'create g markers',
+        'addto markers c1',
+        'move c1 1 2',
+        'undo',
+        'show c1',
+        'tree markers',
+        'redo',
+      ]).replaceAll('\r\n', '\n'),
+    ).toBe(
+      [
+        "svg-editor 0.1 — type 'help' for commands",
+        'svg> canvas 800x600 created',
+        'svg> circle#c1 created',
+        'svg> g#markers created',
+        'svg> circle#c1 added to g#markers',
+        'svg> circle#c1 moved to (101,102)',
+        'svg> circle#c1 moved back to (100,100)',
+        'svg> circle#c1  parent=g#markers',
+        '  cx=100 cy=100 r=20',
+        '  fill=red',
+        'svg> g#markers',
+        '└── circle#c1 cx=100 cy=100 r=20 fill=red',
+        'svg> circle#c1 moved to (101,102)',
+        'svg> ',
+      ].join('\n'),
+    );
   });
 
   it('rejects the excluded box plugin and unknown types without losing pending redo', () => {

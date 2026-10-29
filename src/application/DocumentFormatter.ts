@@ -22,7 +22,25 @@ export class DocumentFormatter {
     // Iterative traversal keeps deep domain trees independent of the call stack.
     while (pending.length > 0) {
       const { shape, prefix, branch } = pending.pop()!;
-      const attributes = this.#attributes(shape);
+      const geometry = shape.geometry;
+      const summary = shape.geometrySummary;
+      const attributes = [
+        ...(summary.points === undefined
+          ? []
+          : [summary.points.map(([x, y]) => `(${x},${y})`).join(' -> ')]),
+        ...(summary.text === undefined
+          ? []
+          : [this.#value(summary.text, true)]),
+        ...Object.entries(summary.attributes).map(([name, value]) =>
+          this.#attribute(
+            name === 'width' ? 'w' : name === 'height' ? 'h' : name,
+            value,
+          ),
+        ),
+        ...Object.entries(shape.attributes)
+          .filter(([name]) => !Object.hasOwn(geometry, name))
+          .map(([name, value]) => this.#attribute(name, value)),
+      ];
       lines.push(
         `${prefix}${branch}${this.identity(shape)}${attributes.length === 0 ? '' : ` ${attributes.join(' ')}`}`,
       );
@@ -38,9 +56,20 @@ export class DocumentFormatter {
   show(document: SvgDocument, id: string): readonly string[] {
     const shape = document.require(id);
     const parent = document.parentOf(id);
+    const geometry = Object.entries(shape.geometry).filter(
+      ([, value]) => typeof value === 'number',
+    );
+    const geometryNames = new Set(geometry.map(([name]) => name));
     return [
       `${this.identity(shape)}  parent=${parent === null ? 'svg' : this.identity(parent)}`,
-      ...this.#attributes(shape).map((attribute) => `  ${attribute}`),
+      ...(geometry.length === 0
+        ? []
+        : [
+            `  ${geometry.map(([name, value]) => this.#attribute(name, value)).join(' ')}`,
+          ]),
+      ...Object.entries(shape.attributes)
+        .filter(([name]) => !geometryNames.has(name))
+        .map(([name, value]) => `  ${this.#attribute(name, value)}`),
     ];
   }
 
@@ -70,12 +99,6 @@ export class DocumentFormatter {
 
   identity(shape: Shape): string {
     return `${this.#value(shape.type)}#${this.#value(shape.id)}`;
-  }
-
-  #attributes(shape: Shape): string[] {
-    return Object.entries(shape.attributes).map(([key, value]) =>
-      this.#attribute(key, value),
-    );
   }
 
   #attribute(name: string, value: number | string): string {

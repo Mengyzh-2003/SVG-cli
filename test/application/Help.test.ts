@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorSession } from '../../src/application/EditorSession.js';
 import { ShapeFactory } from '../../src/shapes/ShapeFactory.js';
 import { Shape } from '../../src/domain/shapes/Shape.js';
-import { executeLine } from '../support/executeLine.js';
+import { executeLine, executeLineAsync } from '../support/executeLine.js';
 
 describe('registered help', () => {
-  it('lists every available command and six creation schemas before init', () => {
+  it('lists every available command and six creation schemas after init', () => {
     const session = new EditorSession();
+    executeLine(session, 'init');
     expect(executeLine(session, 'help')).toEqual({
       status: 'success',
       lines: [
@@ -37,11 +38,19 @@ describe('registered help', () => {
         'canvas [w] [h]',
       ],
     });
+    expect(session.document).not.toBeNull();
+  });
+
+  it('requires a document before help, including malformed help', () => {
+    const session = new EditorSession();
+    for (const line of ['help', 'help extra', 'help ""', 'canvas']) {
+      expect(executeLine(session, line)).toEqual({
+        status: 'error',
+        message: "no document. use 'init' or 'read' first",
+      });
+    }
     expect(session.document).toBeNull();
-    expect(executeLine(session, 'canvas')).toEqual({
-      status: 'error',
-      message: "no document. use 'init' or 'read' first",
-    });
+    expect(session.filePath).toBeNull();
   });
 
   it('preserves document identity and contents on successful or invalid help', () => {
@@ -61,9 +70,39 @@ describe('registered help', () => {
     const fresh = new EditorSession();
     expect(executeLine(fresh, 'help ""')).toEqual({
       status: 'error',
-      message: 'usage: help',
+      message: "no document. use 'init' or 'read' first",
     });
     expect(fresh.document).toBeNull();
+  });
+
+  it('requires successful init or read and preserves history through failed reads', async () => {
+    let source = '<svg><g id="scene"/></svg>';
+    const session = new EditorSession(new ShapeFactory(), {
+      read: async () => source,
+      write: async () => {},
+    });
+    source = '<svg><path/></svg>';
+    expect((await executeLineAsync(session, 'read bad.svg')).status).toBe(
+      'error',
+    );
+    expect(executeLine(session, 'help').status).toBe('error');
+    expect(session.document).toBeNull();
+    source = '<svg><g id="scene"/></svg>';
+    expect((await executeLineAsync(session, 'read good.svg')).status).toBe(
+      'success',
+    );
+    expect(executeLine(session, 'help').status).toBe('success');
+    executeLine(session, 'create g child in scene');
+    executeLine(session, 'undo');
+    const document = session.document;
+    source = '<svg><path/></svg>';
+    expect((await executeLineAsync(session, 'read bad.svg')).status).toBe(
+      'error',
+    );
+    expect(executeLine(session, 'help').status).toBe('success');
+    expect(session.document).toBe(document);
+    expect(session.filePath).toBe('good.svg');
+    expect(executeLine(session, 'redo').status).toBe('success');
   });
 
   it('reflects new factory registrations without executing parsers or creators', () => {
@@ -77,6 +116,7 @@ describe('registered help', () => {
     }
     const factory = new ShapeFactory();
     const session = new EditorSession(factory);
+    executeLine(session, 'init');
     const creator = vi.fn(
       (specification: { readonly id: string }) =>
         new MarkerShape(specification.id),

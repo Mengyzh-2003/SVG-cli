@@ -74,7 +74,7 @@ describe.each([
       `read ${saved} (7 elements)\nsvg> error: undo not allowed after io command\nsvg> canvas 420x220`,
     );
     expect(result.stdout).toContain(
-      'text#t  parent=g#scene\n  x=10\n  y=125\n  text="中文 & < > \\"quoted\\""',
+      'text#t  parent=g#scene\n  x=10 y=125\n  text="中文 & < > \\"quoted\\""',
     );
     expect(result.stdout.match(/error: /g)).toHaveLength(3);
     expect(result.stdout).not.toContain('warning:');
@@ -184,13 +184,13 @@ describe.each([
     );
     expect(result.stdout).not.toContain('assigned id rect1');
     expect(result.stdout).toContain(
-      'text#note  parent=g#g1\n  x=1\n  y=2\n  text="中文 & < >"',
+      'text#note  parent=g#g1\n  x=1 y=2\n  text="中文 & < >"',
     );
     expect(result.stdout).toContain(
       `saved to ${alternate} (4 elements)\nsvg> error: undo not allowed after io command`,
     );
     expect(result.stdout).toContain(
-      'rect#r  parent=g#scene\n  x=11\n  y=22\n  width=3\n  height=4\n  fill=red',
+      'rect#r  parent=g#scene\n  x=11 y=22 width=3 height=4\n  fill=red',
     );
     expect(result.stdout).toContain(
       "canvas 800x600 created\nsvg> error: no file path. use 'save <file.svg>' first\nsvg> ",

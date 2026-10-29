@@ -1,4 +1,7 @@
-import type { ShapeStyleOptions } from '../domain/shapes/Shape.js';
+import type {
+  GeometrySummary,
+  ShapeStyleOptions,
+} from '../domain/shapes/Shape.js';
 import { GeometryShape } from '../domain/shapes/GeometryShape.js';
 import { AttributeChange } from '../domain/shapes/AttributeChange.js';
 
@@ -40,6 +43,14 @@ export class TextShape extends GeometryShape {
 
   override get geometry(): Readonly<Record<string, number | string>> {
     return Object.freeze({ ...super.geometry, text: this.#text });
+  }
+
+  override get geometrySummary(): GeometrySummary {
+    return Object.freeze({
+      attributes: Object.freeze({}),
+      points: Object.freeze([Object.freeze([this.x, this.y] as const)]),
+      text: this.#text,
+    });
   }
 
   get x(): number {
