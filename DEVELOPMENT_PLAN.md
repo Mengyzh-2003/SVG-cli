@@ -6,7 +6,7 @@
 
 本方案是后续逐阶段执行的基线，需求依据为 [phase_cli_1.md](phase_cli_1.md)，架构依据为 [doc/README.md](doc/README.md)。需求中的明确规定优先；本方案补充实现顺序、验收条件和未明确行为的默认决策。若发现冲突，先记录证据并修订文档，再调整实现。
 
-目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-29，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；6B 长文件名复核修复已验收，6C 代码与自动化回归已实现，等待远程 CI 及浏览器显示验收。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
+目标是实现 TypeScript 面向对象 SVG CLI，覆盖 REPL、六种内置图形、层级编辑、Command 撤销重做、SVG 读写及规定错误。截至 2026-10-29，阶段 1–2、3A–3C、4A–4C、5A–5C、6A、6B 已完成；6B 长文件名复核修复已验收，6C 代码与自动化回归已实现并通过远程双平台 CI，浏览器显示验收尚待补齐。持续进度及验收证据以第 8 节为准，不把本段当作永久状态。
 
 本阶段不实现 box、插件加载器、GUI、HTTP API 或历史持久化。ShapeFactory 提供图形注册扩展点；不承诺当前已具备完整 ShapeProvider 插件协议。
 
@@ -287,7 +287,7 @@ doc/README.md 的过程记录只记自己从生成文档或代码发现的问题
 | 5C front/back | 完成 | `17940c1`、`daf2251` 分别推送并核实 SHA，Windows/Linux CI 均通过；30 文件 554 项及交互验收通过，详见下文 | 无 | 下一阶段 6A SVG 编解码 |
 | 6A SVG 编解码 | 完成 | 6A.0—6A.3 的原提交通过；语义修复 `1c380bd`、`06cf787` 与文档 `4c61307` 分别推送并核实 SHA，Windows/Linux CI 均通过；最终 33 文件 666 项及本地质量门槛通过，详见下文 | 无 | 6B 已完成 |
 | 6B 文件与路径 | 完成 | 6B.1 `71e2361`、6B.2 `4ef5572` 分别推送并核实 SHA；[CI 40665930428](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40665930428)、[CI 40672307881](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40672307881) Windows/Linux 均成功；36 文件 706 项、本地质量门槛及交互验收通过，详见下文 | 无 | 下一阶段 6C canvas 与完整文档历史 |
-| 6C canvas/文档历史 | 待验收 | 6C.1 `7e5f411` 已推送且双平台 CI 成功；6C.2 本地 38 文件 746 项通过，等待推送/CI；详见下文 | 浏览器工具无法可靠识别 URL，显示验收未完成 | 核实 6C.2 远程检查并补浏览器预览 |
+| 6C canvas/文档历史 | 待验收 | 6C.1 `7e5f411` 已推送且双平台 CI 成功；6C.2 `7a03ff7` 已推送且 [CI 40821628779](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40821628779) 双平台成功；38 文件 746 项通过，详见下文 | 浏览器工具无法可靠识别 URL，显示验收未完成 | 补齐浏览器预览后再验收 6C |
 | 7 最终交付 | 未开始 | — | 无，依赖 6C；打 tag 前需确认截止时间 | 完整验收、README、final tag |
 
 阶段记录模板（每次更新保留必要历史，不把模板当作证据）：
@@ -482,14 +482,15 @@ CI 链接、对应 SHA、Windows/Linux 结果：
 - **6C.1 实现**：SvgDocument.resize 先校验两个正有限尺寸，再同步宽高与 viewBox；EditorSession 显式登记 canvas。无参输出 `canvas WxH`，两个参数成功输出 `canvas resized to WxH`，单参数或额外参数报 usage。查询与失败保留文档、默认路径和双栈，成功修改（含相同尺寸）清空并锁定历史，下一条成功编辑开始新历史。图形树、实例、局部属性、根元数据不变。
 - **模式与范围**：沿用 Facade 编排与领域封装，canvas 是文档命令，不额外创建可撤销 Command；帮助来自既有注册表，无新增分派或设计模式。领域、会话及源码/编译入口回归已补齐；6C.2 综合文件会话与浏览器预览在本模块推送及双平台 CI 验收后开始。
 
-- **6C.1 本地验收**：37 文件 740 项全部通过，新增领域 9、会话 21、源码/编译入口各 1；typecheck、pretest 构建通过，格式与 diff 检查完成后提交。提交与双平台 CI 待核实，暂不进入 6C.2。
+- **6C.1 本地验收**：37 文件 740 项全部通过，新增领域 9、会话 21、源码/编译入口各 1；typecheck、pretest 构建通过，格式与 diff 检查通过；远程验收证据见下一条，核实后才进入 6C.2。
 
 - **6C.1 远程与交互验收**：`7e5f41185ad34f499b5e0dd93033de7567630e8c` 已独立推送并核实远程 main；[CI 40820923956](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40820923956) Windows/Linux completed/success。Windows PTY 编译入口验证查询、浮点尺寸、修改后 undo 锁定、新编辑 undo/redo、单参数拒绝后 tree 显示正确，Ctrl+D 退出码 0。核实后才开始 6C.2。
 
 ### 阶段 6C.2 执行记录（2026-10-29）
 
 - **综合回归**：真实文件系统下按 init/read/save/canvas 参数化验证失败保持序列化内容、路径与双栈；canvas/tree/show/help 保留历史；成功文档命令清空并锁定两栈，失败编辑不解锁，下一条成功编辑建立全新历史。源码/编译入口各回放六种图形、group/addto/move/scale/set/front/back/canvas/save/read，比较完整层级顺序、几何、继承样式、中文/XML 转义文本、尺寸/viewBox 和第二份保存文件的字节一致性，目录无临时文件。
-- **本地证据**：38 文件 746 项通过（保留 740 项，新增文档混合回归 4 项、源码/编译文件入口各 1 项）；pretest 构建、typecheck、format:check 和 git diff --check 全部通过；远程实现 SHA/CI 尚待提交后核实。
+- **本地证据**：38 文件 746 项通过（保留 740 项，新增文档混合回归 4 项、源码/编译文件入口各 1 项）；pretest 构建、typecheck、format:check 和 git diff --check 全部通过；远程实现 SHA/CI 验收证据见下条。
+- **远程验收**：`7a03ff7838d9c91ec6f20d21cdf7ceb8b8cb3e6c` 已独立推送，SSH ls-remote 与该提交精确一致；[CI 40821628779](https://github.com/Mengyzh-2003/SVG-cli/actions/runs/40821628779) 的 Windows/Linux 检查均为 completed/success，head_sha 均对应本实现。本验收记录另作小型文档提交，其自身推送和 CI 在最终报告核实，避免 SHA 自引用。
 - **可复现样例**：examples/demo.commands 经真实编译入口生成 examples/demo.svg，420×220、六种类型、组移动、中文/XML 实体文本与 canvas 修改均成功。Windows PowerShell 从根目录运行 `Get-Content -Encoding utf8 examples/demo.commands | node dist/main.js`，保存摘要为 6 elements；可直接用浏览器打开生成文件。
 - **浏览器待验收**：Windows Computer Use 成功启动 Edge，但获取窗口状态时工具提示无法可靠确定当前浏览器 URL，并停止本轮控制。未继续浏览器输入，未声称已经看到渲染结果；本项为 6C 待验收原因，不影响上述代码与自动化回归的证据。补齐前不标记 6C 完成、不进入阶段 7。
 - **架构**：抽查 SvgDocument.resize、EditorSession.canvas、HistoryManager、SvgReader/Writer 与文件适配器，保持单向依赖、领域封装、唯一拓扑及两处名字分派；canvas 复用 Facade 和文档命令规则，Command/Composite/Factory/Registry 没有新增替代实现。阶段 7 的干净检出与完整交付审查留待后续，不实现 box、不打 final tag。
