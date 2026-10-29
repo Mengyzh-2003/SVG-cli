@@ -3,6 +3,7 @@ import { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import { ShapeFactory } from '../shapes/ShapeFactory.js';
 import { SvgReadError } from './SvgReadError.js';
+import { SvgInputLimits } from './SvgInputLimits.js';
 
 interface SvgElement {
   readonly name: string;
@@ -19,9 +20,9 @@ export interface SvgReadResult {
 
 /** Pure in-memory decoding. No file, URL, DTD or entity resolver is installed. */
 export class SvgReader {
-  static readonly MAX_BYTES = 5 * 1024 * 1024;
-  static readonly MAX_DEPTH = 128;
-  static readonly MAX_ELEMENTS = 50_000;
+  static readonly MAX_BYTES = SvgInputLimits.MAX_BYTES;
+  static readonly MAX_DEPTH = SvgInputLimits.MAX_DEPTH;
+  static readonly MAX_ELEMENTS = SvgInputLimits.MAX_ELEMENTS;
   readonly #factory: ShapeFactory;
 
   constructor(factory = new ShapeFactory()) {

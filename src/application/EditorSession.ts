@@ -207,13 +207,14 @@ export class EditorSession implements CommandExecutor {
       throw new Error("no file path. use 'save <file.svg>' first");
     }
     try {
-      const source = this.#writer.write(document);
+      const { source, warnings } = this.#writer.serialize(document);
       await this.#files.write(path, source);
       this.#filePath = path;
       this.#history.resetAfterIo();
       return {
         status: 'success',
         lines: [`saved to ${path} (${document.size} elements)`],
+        ...(warnings.length === 0 ? {} : { warnings }),
       };
     } catch (error) {
       throw new SvgFileError('write', path, error);

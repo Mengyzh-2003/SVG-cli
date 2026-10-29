@@ -4,6 +4,12 @@ import { NC_NAME_RE } from 'xmlchars/xmlns/1.0/ed3.js';
 import type { SvgDocument } from '../domain/document/SvgDocument.js';
 import { ContainerShape } from '../domain/shapes/ContainerShape.js';
 import type { Shape } from '../domain/shapes/Shape.js';
+import { SvgInputLimits } from './SvgInputLimits.js';
+
+export interface SvgWriteResult {
+  readonly source: string;
+  readonly warnings: readonly string[];
+}
 
 interface WriteEntry {
   readonly shape: Shape;
@@ -14,6 +20,10 @@ interface WriteEntry {
 /** Serializes the current topology through polymorphic SVG views, never tags. */
 export class SvgWriter {
   write(document: SvgDocument): string {
+    return this.serialize(document).source;
+  }
+
+  serialize(document: SvgDocument): SvgWriteResult {
     const lines = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       `<svg${this.#attributes({
@@ -27,6 +37,7 @@ export class SvgWriter {
     const pending: WriteEntry[] = [...document.roots]
       .reverse()
       .map((shape) => ({ shape, depth: 1 }));
+    let maximumDepth = 1;
     while (pending.length > 0) {
       const { shape, depth, close } = pending.pop()!;
       const name = this.#name(shape.type);
@@ -35,6 +46,7 @@ export class SvgWriter {
         lines.push(`${indent}</${name}>`);
         continue;
       }
+      maximumDepth = Math.max(maximumDepth, depth + 1);
       const attributes = this.#attributes({
         ...shape.svgAttributes,
         id: shape.id,
@@ -68,7 +80,14 @@ export class SvgWriter {
         { cause: error },
       );
     }
-    return source;
+    return {
+      source,
+      warnings: SvgInputLimits.warnings(
+        Buffer.byteLength(source, 'utf8'),
+        maximumDepth,
+        document.size + 1,
+      ),
+    };
   }
 
   #name(name: string): string {

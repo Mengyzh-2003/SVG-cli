@@ -127,7 +127,7 @@ id 必填、唯一且区分大小写；`set` 不允许修改 id。几何数值�
 
 文件必须是 XML 1.0、UTF-8（可不写编码声明）。输入上限为 **5 MiB UTF-8、128 层（根算第 1 层）、50,000 个元素（含根）**；文件按实际读取字节限额，深度/数量在解析期间检查。拒绝 DTD/DOCTYPE、自定义实体和外部实体，不解析本地外部文件或发起网络请求；支持预定义实体和合法数字引用。
 
-这些限制针对输入，编辑扩大后的输出仍可能超过读入限额。保留附加属性**不等于 SVG 净化**：事件、URL、CSS 引用可能保留，浏览器打开时的行为不受解析器外部资源禁用约束。请只预览可信文件。
+这些限制针对输入。编辑扩大后的输出仍允许保存；若实际 UTF-8 大小、深度或元素数超出读入预算，保存成功后会打印 warning，说明当前版本无法直接读回。保存失败不发布该警告。保留附加属性**不等于 SVG 净化**：事件、URL、CSS 引用可能保留，浏览器打开时的行为不受解析器外部资源禁用约束。请只预览可信文件。
 
 本工具使用内存历史，无自动保存或历史持久化；没有 GUI、HTTP API、完整 SVG/CSS 引擎或发布包流程。浏览器样例检查不代表跨浏览器兼容性认证。
 
@@ -145,7 +145,9 @@ Get-Content -Encoding utf8 examples/demo.commands | node dist/main.js
 node dist/main.js < examples/demo.commands
 ```
 
-这会写入 [examples/demo.svg](examples/demo.svg)，包含全部六种类型、420×220 画布与 `SVG 编辑器：中文 & < >`。用户提供的 [打开截图](doc/evidence/demo-preview.png) 已于 2026-10-29 完成样例视觉验收；未声称独立浏览器自动化或跨浏览器测试。
+这会写入 [examples/demo.svg](examples/demo.svg)，包含全部六种类型、420×220 画布与 `SVG 编辑器：中文 & < >`。用户提供的 [打开截图](doc/evidence/demo-preview.png) 已完成样例视觉验收；未声称独立浏览器自动化或跨浏览器测试。
+
+[局部坐标示例](examples/local-coordinates.svg) 包含 transform 和组继承样式，可用同样方式回放 [对应命令](examples/local-coordinates.commands)。`move translated 10 0` 把 panel 的本地 x 从 0 改为 10，组的 translate(60,40) 保留；不是在浏览器世界坐标中加 10。随后 `addto destination panel` 保留 panel 的本地属性，但新父组的平移与橙色 fill 会影响外观。脚本生成的 local-moved.svg、local-regrouped.svg 可供对比预览，已排除在版本管理外。Reader/Writer 保留这些属性，不计算样式或补偿矩阵；自动回归核对坐标、层级和属性往返。
 
 ## 质量检查与项目文档
 
@@ -156,7 +158,7 @@ npm run build
 npm test
 ```
 
-`npm test` 的 pretest 会重新构建，再运行一次 Vitest。当前 **39 个测试文件、752 项测试**覆盖词法与 REPL、领域不变量、六种图形、所有编辑命令执行/撤销/重做、失败状态不变、IO 历史、SVG 往返、资源边界及源码/编译入口。需求第 6 节和 6.1 版本 A 有专门入口回放测试，box 按未支持类型验收。
+`npm test` 的 pretest 会重新构建，再运行一次 Vitest。当前 **39 个测试文件、762 项测试**覆盖词法与 REPL、领域不变量、六种图形、所有编辑命令执行/撤销/重做、失败状态不变、IO 历史、SVG 往返、资源边界及源码/编译入口。需求第 6 节和 6.1 版本 A 有完整入口输出回放测试，box 按未支持类型验收。
 
 GitHub Actions 在每次 push/PR 上执行 Windows、Linux 干净安装、格式、源码/测试类型检查、构建和测试。Prettier 检查代码及配置，Markdown 保留项目文档格式；不设任意覆盖率阈值。交互终端、用户截图与 CI 各自记录实际证据。
 

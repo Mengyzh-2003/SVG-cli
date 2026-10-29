@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { SvgReader } from './SvgReader.js';
+import { SvgInputLimits } from './SvgInputLimits.js';
 import { SvgFileError } from './SvgFileError.js';
 
 type AtomicReplace = (
@@ -18,7 +18,7 @@ interface SvgFileStoreOptions {
 
 /** Bounded UTF-8 file access, separate from session and document state. */
 export class SvgFileStore {
-  static readonly MAX_BYTES = SvgReader.MAX_BYTES;
+  static readonly MAX_BYTES = SvgInputLimits.MAX_BYTES;
   static readonly #READ_CHUNK_BYTES = 64 * 1024;
   readonly #replace: AtomicReplace;
   readonly #writeTemporaryFile: WriteTemporaryFile;

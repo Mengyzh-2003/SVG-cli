@@ -3,3 +3,5 @@ dist/
 coverage/
 .DS_Store
 Thumbs.db
+examples/local-moved.svg
+examples/local-regrouped.svg

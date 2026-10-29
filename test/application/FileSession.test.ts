@@ -76,6 +76,59 @@ describe('EditorSession file commands', () => {
     expect(executeLine(session, 'undo')).toEqual(error('nothing to undo'));
   });
 
+  it.each([false, true])(
+    'publishes save budget warnings only after successful file replacement (failure=%s)',
+    async (fail) => {
+      const source =
+        '<svg>' +
+        Array.from({ length: 127 }, (_, i) => `<g id="g${i}">`).join('') +
+        '</g>'.repeat(127) +
+        '</svg>';
+      const files = new SvgFileStore({
+        replace: async (temporary, target) => {
+          if (fail) throw new Error('replace failed');
+          await fs.rename(temporary, target);
+        },
+      });
+      await fs.writeFile(originalPath, source);
+      const session = new EditorSession(new ShapeFactory(), files);
+      await executeLineAsync(session, `read ${quote(originalPath)}`);
+      executeLine(session, 'create g overflow in g126');
+      executeLine(session, 'create g redo');
+      executeLine(session, 'undo');
+      const target = join(directory, 'large.svg');
+      expect(await executeLineAsync(session, `save ${quote(target)}`)).toEqual(
+        fail
+          ? error(`cannot write file: ${target}`)
+          : {
+              status: 'success',
+              lines: [`saved to ${target} (128 elements)`],
+              warnings: [
+                'saved SVG exceeds reader limits: 128 levels; cannot read it back with current limits',
+              ],
+            },
+      );
+      expect(session.filePath).toBe(fail ? originalPath : target);
+      if (fail) {
+        expect(await fs.readFile(originalPath, 'utf8')).toBe(source);
+        expect(executeLine(session, 'redo')).toEqual(success('g#redo created'));
+        expect(executeLine(session, 'undo')).toEqual(success('g#redo removed'));
+        expect(executeLine(session, 'undo')).toEqual(
+          success('g#overflow removed'),
+        );
+        await expect(fs.stat(target)).rejects.toThrow();
+      } else {
+        expect(executeLine(session, 'undo')).toEqual(ioError);
+        const saved = await fs.readFile(target, 'utf8');
+        expect(saved).toContain('id="overflow"');
+        expect(() => new SvgReader().read(saved)).toThrow('nesting depth');
+      }
+      expect(
+        (await fs.readdir(directory)).some((name) => name.endsWith('.tmp')),
+      ).toBe(false);
+    },
+  );
+
   it('replaces an existing document and both history branches only after a successful read', async () => {
     const session = await withHistory();
     const document = session.document;

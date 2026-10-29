@@ -1,14 +1,92 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { SvgDocument } from '../../src/domain/document/SvgDocument.js';
 import { SvgReader } from '../../src/io/SvgReader.js';
 import { SvgWriter } from '../../src/io/SvgWriter.js';
 import { ShapeFactory } from '../../src/shapes/ShapeFactory.js';
 import { MoveCommand } from '../../src/commands/MoveCommand.js';
 import { ScaleCommand } from '../../src/commands/ScaleCommand.js';
+import { GroupShape } from '../../src/shapes/GroupShape.js';
+import { TextShape } from '../../src/shapes/TextShape.js';
+import { AddToCommand } from '../../src/commands/AddToCommand.js';
 
 describe('SvgWriter and round-trip', () => {
   const reader = new SvgReader();
   const writer = new SvgWriter();
+
+  it('preserves the local-coordinate example without baking inherited styles or transforms into children', () => {
+    const document = reader.read(
+      readFileSync('examples/local-coordinates.svg', 'utf8'),
+    ).document;
+    const panel = document.require('panel');
+    expect(panel.attributes.fill).toBeUndefined();
+    new MoveCommand(document, 'translated', 10, 0).execute();
+    expect(panel.geometry.x).toBe(10);
+    expect(document.require('translated').svgAttributes.transform).toBe(
+      'translate(60,40)',
+    );
+    expect(snapshot(reader.read(writer.write(document)).document)).toEqual(
+      snapshot(document),
+    );
+    const regroup = new AddToCommand(document, 'destination', 'panel');
+    regroup.execute();
+    expect(document.parentOf('panel')!.id).toBe('destination');
+    expect(panel.geometry.x).toBe(10);
+    expect(panel.attributes.fill).toBeUndefined();
+    expect(document.require('destination').attributes.fill).toBe('#f5a623');
+    expect(snapshot(reader.read(writer.write(document)).document)).toEqual(
+      snapshot(document),
+    );
+    regroup.undo();
+    expect(document.parentOf('panel')!.id).toBe('translated');
+  });
+
+  it('warns only beyond the exact serialized UTF-8 byte budget', () => {
+    const document = new SvgDocument();
+    const text = new TextShape('t', 0, 0, '中');
+    document.insert(text);
+    const overhead = Buffer.byteLength(writer.write(document));
+    text
+      .prepareSet('text', '中' + 'a'.repeat(SvgReader.MAX_BYTES - overhead))
+      .apply();
+    const exact = writer.serialize(document);
+    expect(Buffer.byteLength(exact.source)).toBe(SvgReader.MAX_BYTES);
+    expect(exact.warnings).toEqual([]);
+    expect(reader.read(exact.source).document.size).toBe(1);
+    text.prepareSet('text', text.textContent! + 'a').apply();
+    const over = writer.serialize(document);
+    expect(Buffer.byteLength(over.source)).toBe(SvgReader.MAX_BYTES + 1);
+    expect(over.warnings).toEqual([
+      'saved SVG exceeds reader limits: 5 MiB UTF-8; cannot read it back with current limits',
+    ]);
+    expect(() => reader.read(over.source)).toThrow('5 MiB');
+  });
+
+  it('counts the svg root for exact and exceeded nesting budgets', () => {
+    const document = reader.read(
+      '<svg>' + '<g>'.repeat(127) + '</g>'.repeat(127) + '</svg>',
+    ).document;
+    expect(writer.serialize(document).warnings).toEqual([]);
+    document.insert(new GroupShape('overflow'), document.walk().at(-1)!.id);
+    const result = writer.serialize(document);
+    expect(result.warnings).toEqual([
+      'saved SVG exceeds reader limits: 128 levels; cannot read it back with current limits',
+    ]);
+    expect(() => reader.read(result.source)).toThrow('nesting depth');
+  });
+
+  it('counts the svg root for exact and exceeded element budgets', () => {
+    const document = reader.read(
+      '<svg>' + '<g/>'.repeat(49_999) + '</svg>',
+    ).document;
+    expect(writer.serialize(document).warnings).toEqual([]);
+    document.insert(new GroupShape('overflow'));
+    const result = writer.serialize(document);
+    expect(result.warnings).toEqual([
+      'saved SVG exceeds reader limits: 50000 elements (including svg); cannot read it back with current limits',
+    ]);
+    expect(() => reader.read(result.source)).toThrow('element count');
+  });
   const snapshot = (document: SvgDocument) => ({
     width: document.width,
     height: document.height,
